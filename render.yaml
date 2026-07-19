@@ -1,0 +1,38 @@
+services:
+  # ---- Backend Admin API (FastAPI) ----
+  - type: web
+    name: siliun-backend
+    env: python
+    plan: free
+    buildCommand: "pip install -r backend/requirements.txt"
+    startCommand: "uvicorn backend.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: SILIUN_ADMIN_TOKEN
+        sync: false
+      - key: ALLOWED_ORIGINS
+        value: "https://tu-sitio.webflow.io"
+      - key: RESONANCE_THRESHOLD
+        value: "70"
+      - key: DISCORD_WEBHOOK_URL
+        sync: false
+      - key: DATA_DIR
+        value: "/opt/render/project/data"
+    disk:
+      name: siliun-data
+      mountPath: /opt/render/project/data
+      sizeGB: 1
+
+  # ---- Admin Panel UI (Streamlit) ----
+  - type: web
+    name: siliun-panel-ui
+    env: python
+    plan: free
+    buildCommand: "pip install -r panel/requirements.txt"
+    startCommand: "streamlit run panel/streamlit_app.py --server.port $PORT --server.address 0.0.0.0"
+    envVars:
+      - key: API_BASE
+        value: "https://siliun-backend.onrender.com"
+      - key: SILIUN_ADMIN_TOKEN
+        sync: false
+      - key: ADMIN_ID
+        value: "admin"
