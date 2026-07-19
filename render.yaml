@@ -16,11 +16,11 @@ services:
       - key: DISCORD_WEBHOOK_URL
         sync: false
       - key: DATA_DIR
-        value: "/opt/render/project/data"
-    disk:
-      name: siliun-data
-      mountPath: /opt/render/project/data
-      sizeGB: 1
+        value: "./data"
+    # NOTE: free tier does not support persistent disks. DATA_DIR is
+    # ephemeral here -- data resets on every redeploy. Migrate storage.py
+    # to Postgres (Render offers a free instance) before onboarding real
+    # users, or upgrade this service to a paid plan and re-add a disk.
 
   # ---- Admin Panel UI (Streamlit) ----
   - type: web
