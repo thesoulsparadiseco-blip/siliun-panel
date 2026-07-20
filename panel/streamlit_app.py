@@ -5,7 +5,7 @@ the private Webflow page /siliun/panel.
 Talks to the FastAPI backend (backend/main.py) over HTTPS using the
 Authorization: Bearer <SILIUN_ADMIN_TOKEN> header. Configure via
 Streamlit secrets (.streamlit/secrets.toml) or environment variables:
-  API_BASE, SILIUN_ADMIN_TOKEN, ADMIN_ID
+API_BASE, SILIUN_ADMIN_TOKEN, ADMIN_ID
 """
 import os
 from datetime import datetime
@@ -82,6 +82,31 @@ tabs = st.tabs([
 with tabs[0]:
     st.subheader("Estado del Usuario")
 
+    with st.expander("➕ Crear usuario nuevo"):
+        st.caption("Da de alta un usuario en el backend antes de poder cargarlo abajo.")
+        nc1, nc2 = st.columns(2)
+        new_user_id = nc1.text_input("User ID (ej. u_00042)", key="new_user_id")
+        new_name = nc2.text_input("Nombre", key="new_user_name")
+        new_email = nc1.text_input("Email", key="new_user_email")
+        new_plan = nc2.selectbox("Plan", ["Troton Pro", "Founders Window"], key="new_user_plan")
+        if st.button("Crear usuario", key="create_user_btn"):
+            if not new_user_id or not new_name or not new_email:
+                st.warning("Completá User ID, Nombre y Email.")
+            else:
+                try:
+                    created = api_post("/admin/user", {
+                        "userId": new_user_id,
+                        "email": new_email,
+                        "name": new_name,
+                        "memberPlan": new_plan,
+                    })
+                    st.success(f"Usuario '{new_user_id}' creado.")
+                    st.session_state["user"] = created
+                    st.session_state["user_id_input"] = new_user_id
+                    st.rerun()
+                except Exception as e:
+                    st.error(str(e))
+
     col_id, col_load = st.columns([3, 1])
     user_id = col_id.text_input("User ID", value="u_12345", key="user_id_input")
     if col_load.button("Cargar", use_container_width=True):
@@ -100,8 +125,8 @@ with tabs[0]:
 
         st.progress(min(max(user["resonanceScore"], 0) / 100, 1.0), text="Resonancia / 100")
         st.write(
-            f"**user_state_ready:** {'✅ Listo' if user['user_state_ready'] else '⏳ No listo'}  "
-            f"·  última verificación: `{user.get('last_state_check', '—')}`"
+            f"**user_state_ready:** {'✅ Listo' if user['user_state_ready'] else '⏳ No listo'} "
+            f"· última verificación: `{user.get('last_state_check', '—')}`"
         )
 
         st.markdown("##### Ajustar y recalcular")
