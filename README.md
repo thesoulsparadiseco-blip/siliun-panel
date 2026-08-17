@@ -170,12 +170,17 @@ el otro abre tu agente.
 **Límites que hay que conocer:**
 - `AGENT_DAILY_LIMIT` (por defecto 300 mensajes/día) frena el gasto de la
   API si el token se filtra — ajustalo en Render si lo necesitás.
-- **No hay activación por voz ni por 3 aplausos en segundo plano.** Ningún
-  navegador (ni siquiera como PWA instalada) permite que una página web
-  escuche el micrófono de forma continua cuando no está en primer plano —
-  es una restricción de plataforma, no una limitación de este código. Lo
-  que sí tiene: un botón de micrófono (🎤) para dictar por voz mientras la
-  pestaña está abierta, y lectura en voz alta de las respuestas.
+- **Activación por voz o 3 aplausos, solo en primer plano.** El botón
+  "Activar con voz / 3 aplausos" pide permiso de micrófono y, mientras esa
+  pestaña siga abierta y visible, detecta 3 palmadas seguidas (análisis de
+  amplitud con Web Audio API) o la palabra clave "agente" (reconocimiento
+  de voz continuo) para abrir el chat sin tocar la pantalla — funciona
+  igual en el móvil y en el ordenador. **No puede correr con la pantalla
+  bloqueada ni con la pestaña en segundo plano**: ningún navegador permite
+  eso desde una página web, ni siquiera instalada como PWA — se pausa sola
+  al ocultarse y se reanuda al volver. El reconocimiento de voz continuo
+  envía audio a los servidores de Google (como el resto de la Web Speech
+  API), así que requiere conexión.
 - Sin token configurado, o sin red, el agente cae de vuelta a su base de
   conocimiento local sobre 369/Tesla/Cábala (la misma del archivo
   original) — sigue siendo útil offline, solo que sin IA real.

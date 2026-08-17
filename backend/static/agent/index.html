@@ -129,12 +129,13 @@
   .quick button:hover{ border-color:var(--copper); color:var(--copper-bright); }
 
   .voice-bar{
-    display:flex; align-items:center; gap:10px;
+    display:flex; align-items:center; flex-wrap:wrap; gap:10px;
     padding:0 28px 14px;
     font-family:'Space Mono', monospace;
     font-size:10px; letter-spacing:0.1em; text-transform:uppercase;
     color:var(--parchment-dim);
   }
+  .voice-toggle.armed{ animation: pulse 1.6s infinite; }
   .voice-toggle{
     display:flex; align-items:center; gap:6px;
     background:transparent; border:1px solid var(--line); color:var(--parchment-dim);
@@ -236,6 +237,7 @@
 
   <div class="voice-bar">
     <button type="button" class="voice-toggle" id="voiceToggle"><span class="dot"></span> Leer respuestas en voz alta</button>
+    <button type="button" class="voice-toggle" id="activationToggle" title="Escucha 3 aplausos o 'oye agente' mientras esta pestaña está abierta y visible"><span class="dot"></span> Activar con voz / 3 aplausos</button>
     <button type="button" class="voice-toggle" id="compressToggle"><span class="dot"></span> Ver historial completo</button>
   </div>
   <div class="voice-bar" id="voiceSelectBar" style="display:none;">
@@ -249,7 +251,7 @@
     <button class="send" id="sendBtn" type="submit">Enviar</button>
   </form>
 
-  <footer>Este agente es tuyo: solo responde con tu token personal.<br>Sin conexión o sin token, cae de vuelta a su base de conocimiento local sobre 369 y Cábala.</footer>
+  <footer>Este agente es tuyo: solo responde con tu token personal.<br>Sin conexión o sin token, cae de vuelta a su base de conocimiento local sobre 369 y Cábala.<br>La activación por voz/aplausos solo funciona mientras esta pestaña está abierta y visible — ningún navegador permite escucharte con la pantalla apagada o la app en segundo plano.</footer>
 </div>
 
 <div class="overlay" id="settingsOverlay">
@@ -675,8 +677,14 @@ if(SpeechRecognitionAPI){
   recognition.continuous = false;
   recognition.interimResults = false;
 
-  recognition.onstart = ()=>{ recognizing = true; micBtn.classList.add('recording'); micBtn.textContent = '●'; };
-  recognition.onend = ()=>{ recognizing = false; micBtn.classList.remove('recording'); micBtn.textContent = '🎤'; };
+  recognition.onstart = ()=>{
+    recognizing = true; micBtn.classList.add('recording'); micBtn.textContent = '●';
+    pauseWakeWordWhileDictating();
+  };
+  recognition.onend = ()=>{
+    recognizing = false; micBtn.classList.remove('recording'); micBtn.textContent = '🎤';
+    resumeWakeWordAfterDictating();
+  };
   recognition.onerror = ()=>{ recognizing = false; micBtn.classList.remove('recording'); micBtn.textContent = '🎤'; };
   recognition.onresult = (event)=>{
     const transcript = event.results[0][0].transcript;
@@ -696,6 +704,162 @@ if(SpeechRecognitionAPI){
     renderChat();
   });
 }
+
+/* ============================================================
+   ACTIVACIÓN EN PRIMER PLANO — 3 aplausos o palabra clave de voz.
+   Solo corre mientras esta pestaña está abierta y visible: es el
+   límite real de cualquier navegador, en móvil y en ordenador —
+   no hay forma de escuchar con la pantalla apagada o en segundo
+   plano desde una página web (ni siquiera instalada como PWA).
+   ============================================================ */
+const activationToggle = document.getElementById('activationToggle');
+const WAKE_WORDS = ['oye agente', 'hola agente', 'agente'];
+const CLAP_THRESHOLD = 0.35;
+const CLAP_COOLDOWN_MS = 250;
+const CLAP_WINDOW_MS = 1400;
+
+let activationOn = false;
+let audioCtx = null, analyser = null, micStream = null;
+let clapTimestamps = [];
+let clapLoopId = null;
+let wakeRecognition = null;
+
+function systemNote(text){
+  chatLog.push({ role:'system', text });
+  renderChat();
+}
+
+function onActivationTriggered(source, spokenRest){
+  systemNote(source === 'aplausos' ? '👏 3 aplausos detectados — te escucho.' : '🎙️ Palabra clave detectada — te escucho.');
+  input.focus();
+  if(spokenRest){
+    input.value = spokenRest;
+    form.dispatchEvent(new Event('submit'));
+  }else if(recognition && !recognizing){
+    try{ recognition.start(); }catch(e){ /* ya iniciado */ }
+  }
+}
+
+function startClapDetector(){
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+    micStream = stream;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioCtx.createMediaStreamSource(stream);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 512;
+    source.connect(analyser);
+
+    const data = new Uint8Array(analyser.fftSize);
+    let lastClapAt = 0;
+
+    const loop = () => {
+      if(!activationOn){ clapLoopId = null; return; }
+      if(document.hidden){ clapLoopId = requestAnimationFrame(loop); return; }
+      analyser.getByteTimeDomainData(data);
+      let peak = 0;
+      for(let i = 0; i < data.length; i++){
+        const v = Math.abs(data[i] - 128) / 128;
+        if(v > peak) peak = v;
+      }
+      const now = performance.now();
+      if(peak > CLAP_THRESHOLD && now - lastClapAt > CLAP_COOLDOWN_MS){
+        lastClapAt = now;
+        clapTimestamps.push(now);
+        clapTimestamps = clapTimestamps.filter(t => now - t <= CLAP_WINDOW_MS);
+        if(clapTimestamps.length >= 3){
+          clapTimestamps = [];
+          onActivationTriggered('aplausos');
+        }
+      }
+      clapLoopId = requestAnimationFrame(loop);
+    };
+    clapLoopId = requestAnimationFrame(loop);
+  }).catch(err => {
+    systemNote('No se pudo activar la escucha de aplausos: ' + err.message);
+  });
+}
+
+function stopClapDetector(){
+  if(clapLoopId){ cancelAnimationFrame(clapLoopId); clapLoopId = null; }
+  if(micStream){ micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+  if(audioCtx){ audioCtx.close().catch(()=>{}); audioCtx = null; }
+  analyser = null;
+  clapTimestamps = [];
+}
+
+function startWakeWordRecognition(){
+  if(!SpeechRecognitionAPI) return;
+  wakeRecognition = new SpeechRecognitionAPI();
+  wakeRecognition.lang = 'es-ES';
+  wakeRecognition.continuous = true;
+  wakeRecognition.interimResults = false;
+
+  wakeRecognition.onresult = (event) => {
+    const last = event.results[event.results.length - 1];
+    const transcript = last[0].transcript.toLowerCase().trim();
+    const hit = WAKE_WORDS.find(w => transcript.includes(w));
+    if(hit){
+      const rest = transcript.split(hit)[1]?.trim();
+      onActivationTriggered('voz', rest || null);
+    }
+  };
+  wakeRecognition.onerror = () => { /* se reintenta en onend */ };
+  wakeRecognition.onend = () => {
+    if(activationOn && !document.hidden && !recognizing){
+      try{ wakeRecognition.start(); }catch(e){ /* ya iniciado */ }
+    }
+  };
+  try{ wakeRecognition.start(); }catch(e){ /* ya iniciado */ }
+}
+
+function stopWakeWordRecognition(){
+  if(wakeRecognition){
+    wakeRecognition.onend = null;
+    try{ wakeRecognition.stop(); }catch(e){}
+    wakeRecognition = null;
+  }
+}
+
+function pauseWakeWordWhileDictating(){
+  if(wakeRecognition){ try{ wakeRecognition.stop(); }catch(e){} }
+}
+function resumeWakeWordAfterDictating(){
+  if(activationOn && SpeechRecognitionAPI && !document.hidden && !wakeRecognition){
+    startWakeWordRecognition();
+  }
+}
+
+activationToggle.addEventListener('click', () => {
+  activationOn = !activationOn;
+  activationToggle.classList.toggle('on', activationOn);
+  activationToggle.classList.toggle('armed', activationOn);
+  if(activationOn){
+    systemNote('Escucha activa en esta pestaña: di "agente" o da 3 aplausos para hablarme. Se apaga si cierras o minimizas la pestaña.');
+    startClapDetector();
+    startWakeWordRecognition();
+  }else{
+    stopClapDetector();
+    stopWakeWordRecognition();
+  }
+});
+
+document.addEventListener('visibilitychange', () => {
+  if(!activationOn) return;
+  if(document.hidden){
+    // el detector de aplausos se auto-pausa (ver el chequeo de document.hidden
+    // dentro de su propio loop) y se reanuda solo al volver a ser visible;
+    // el reconocimiento de voz sí hay que pararlo y reiniciarlo a mano.
+    stopWakeWordRecognition();
+  }else if(!wakeRecognition){
+    startWakeWordRecognition();
+  }
+});
+
+window.addEventListener('beforeunload', () => {
+  stopClapDetector();
+  stopWakeWordRecognition();
+});
 
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
