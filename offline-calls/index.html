@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Sistema de llamadas offline</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #050608;
+      color: #f5f5f5;
+      margin: 0;
+      padding: 20px;
+    }
+    .app {
+      max-width: 480px;
+      margin: 0 auto;
+      border-radius: 16px;
+      padding: 20px;
+      background: linear-gradient(145deg, #0b0f18, #141824);
+      box-shadow: 0 0 25px rgba(0,0,0,0.6);
+    }
+    h1 {
+      font-size: 1.4rem;
+      margin-bottom: 4px;
+    }
+    .subtitle {
+      font-size: 0.85rem;
+      color: #c0c0c0;
+      margin-bottom: 16px;
+    }
+    .status {
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: rgba(255, 215, 0, 0.06);
+      border: 1px solid rgba(255, 215, 0, 0.35);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #ffd700;
+      box-shadow: 0 0 8px #ffd700;
+    }
+    .status span {
+      font-size: 0.85rem;
+    }
+    .field {
+      margin-bottom: 14px;
+    }
+    .label {
+      font-size: 0.8rem;
+      margin-bottom: 4px;
+      color: #b8b8b8;
+    }
+    input, textarea, select {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid #333;
+      background: #0b0f14;
+      color: #f5f5f5;
+      padding: 8px 10px;
+      font-size: 0.9rem;
+      outline: none;
+    }
+    input:focus, textarea:focus, select:focus {
+      border-color: #ffd700;
+      box-shadow: 0 0 0 1px rgba(255, 215, 0, 0.4);
+    }
+    textarea {
+      min-height: 70px;
+      resize: vertical;
+    }
+    .row {
+      display: flex;
+      gap: 10px;
+    }
+    .row .field {
+      flex: 1;
+    }
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 16px;
+    }
+    button {
+      border-radius: 999px;
+      border: none;
+      padding: 10px 14px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #ffd700, #ffb300);
+      color: #050608;
+      box-shadow: 0 0 12px rgba(255, 215, 0, 0.6);
+    }
+    .btn-secondary {
+      background: #1b1f2b;
+      color: #f5f5f5;
+      border: 1px solid #333;
+    }
+    .log {
+      margin-top: 18px;
+      font-size: 0.8rem;
+      color: #a0a0a0;
+      border-top: 1px solid #222;
+      padding-top: 10px;
+    }
+    .log-entry {
+      margin-bottom: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1>Sistema de llamadas offline</h1>
+    <div class="subtitle">Registro local de llamadas y notas, sin conexión requerida.</div>
+
+    <div class="status">
+      <div class="dot"></div>
+      <span>Modo offline activo · Datos guardados en este dispositivo</span>
+    </div>
+
+    <div class="field">
+      <div class="label">Nombre del contacto</div>
+      <input id="contactName" type="text" placeholder="Ej. Clínica Santa Anna" />
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <div class="label">Teléfono</div>
+        <input id="phoneNumber" type="tel" placeholder="+34 ..." />
+      </div>
+      <div class="field">
+        <div class="label">Tipo de llamada</div>
+        <select id="callType">
+          <option value="consulta">Consulta</option>
+          <option value="seguimiento">Seguimiento</option>
+          <option value="urgente">Urgente</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="label">Notas de la llamada</div>
+      <textarea id="callNotes" placeholder="Resumen, acuerdos, próximos pasos..."></textarea>
+    </div>
+
+    <div class="actions">
+      <button class="btn-primary" id="saveCall">Guardar llamada offline</button>
+      <button class="btn-secondary" id="exportData">Exportar registro (JSON)</button>
+    </div>
+
+    <div class="log" id="log"></div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "offline_calls_registry_v1";
+
+    function loadCalls() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      try {
+        return raw ? JSON.parse(raw) : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function saveCalls(calls) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(calls));
+    }
+
+    function renderLog() {
+      const log = document.getElementById("log");
+      const calls = loadCalls();
+      if (!calls.length) {
+        log.textContent = "Sin llamadas registradas aún.";
+        return;
+      }
+      log.innerHTML = "";
+      calls.slice().reverse().forEach((call, index) => {
+        const div = document.createElement("div");
+        div.className = "log-entry";
+        div.textContent =
+          `#${calls.length - index} · ` +
+          `${call.date} · ${call.contact || "Sin nombre"} · ` +
+          `${call.phone || "Sin teléfono"} · ${call.type} `;
+        log.appendChild(div);
+      });
+    }
+
+    document.getElementById("saveCall").addEventListener("click", () => {
+      const contact = document.getElementById("contactName").value.trim();
+      const phone = document.getElementById("phoneNumber").value.trim();
+      const type = document.getElementById("callType").value;
+      const notes = document.getElementById("callNotes").value.trim();
+
+      const calls = loadCalls();
+      calls.push({
+        contact,
+        phone,
+        type,
+        notes,
+        date: new Date().toLocaleString()
+      });
+      saveCalls(calls);
+      renderLog();
+
+      document.getElementById("callNotes").value = "";
+    });
+
+    document.getElementById("exportData").addEventListener("click", () => {
+      const calls = loadCalls();
+      const blob = new Blob([JSON.stringify(calls, null, 2)], {
+        type: "application/json"
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "llamadas_offline.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    renderLog();
+  </script>
+</body>
+</html>
