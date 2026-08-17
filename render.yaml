@@ -19,6 +19,14 @@ services:
         sync: false
       - key: DATA_DIR
         value: "./data"
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ANTHROPIC_MODEL
+        value: "claude-sonnet-5"
+      - key: AGENT_TOKEN
+        sync: false
+      - key: AGENT_DAILY_LIMIT
+        value: "300"
     # NOTE: free tier does not support persistent disks. DATA_DIR is
     # ephemeral here -- data resets on every redeploy. Migrate storage.py
     # to Postgres (Render offers a free instance) before onboarding real

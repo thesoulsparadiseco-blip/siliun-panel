@@ -67,3 +67,13 @@ class AuditLogEntry(BaseModel):
     action: str
     target_user: Optional[str] = None
     details: Optional[Dict[str, Any]] = None
+
+
+class AgentChatMessage(BaseModel):
+    role: str  # "user" | "agent"
+    text: str = Field(..., max_length=4000)
+
+
+class AgentChatRequest(BaseModel):
+    message: str = Field(..., min_length=1, max_length=4000)
+    history: List[AgentChatMessage] = Field(default_factory=list)

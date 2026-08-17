@@ -1,0 +1,14 @@
+{
+  "name": "369 · Mi Agente Personal",
+  "short_name": "Agente 369",
+  "description": "Agente personal conectado a Claude, con base local sobre 369 y Cábala",
+  "start_url": "/agent/",
+  "scope": "/agent/",
+  "display": "standalone",
+  "background_color": "#0e0d0c",
+  "theme_color": "#0e0d0c",
+  "lang": "es",
+  "icons": [
+    { "src": "/agent/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

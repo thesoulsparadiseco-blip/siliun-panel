@@ -137,7 +137,50 @@ a la URL pública del servicio `siliun-panel-ui` de Render (o incrustarla en
 un iframe). Protegé esa página con Memberstack para que solo admins la vean
 — eso es aparte de la auth del backend, no la reemplaza.
 
-## 6. Checklist de arranque
+## 6. Tu agente personal (`/agent`, conectado a Claude)
+
+Además del panel admin, el backend sirve un agente personal en
+`https://<tu-backend>.onrender.com/agent/` — una versión de "369 · Sistema
+Tesla" que, a diferencia del archivo local original, habla con la API real
+de Claude en vez de responder solo con frases fijas.
+
+**Cómo queda protegido:** el navegador nunca ve tu clave de Anthropic. El
+frontend (`backend/static/agent/`) le pide texto a `POST /api/agent/chat`
+en el propio backend, mandando tu `AGENT_TOKEN` personal en el header
+`Authorization`; el backend es quien llama a Anthropic con
+`ANTHROPIC_API_KEY` guardada como variable de entorno. `AGENT_TOKEN` es
+un secreto distinto de `SILIUN_ADMIN_TOKEN` — uno abre el panel admin,
+el otro abre tu agente.
+
+**Setup:**
+1. Generá una API key en [console.anthropic.com](https://console.anthropic.com)
+   y un token personal largo y aleatorio (para `AGENT_TOKEN`).
+2. En Render, completá `ANTHROPIC_API_KEY` y `AGENT_TOKEN` en el servicio
+   `siliun-backend` (son `sync: false`, no van en el repo).
+3. Abrí `/agent/` desde el navegador de tu móvil y de tu ordenador. La
+   primera vez te va a pedir el token personal (ícono ⚙ arriba a la
+   derecha) — se guarda solo en ese dispositivo (`localStorage`), no en
+   el servidor.
+4. **Instalarlo como app:** en el móvil (Chrome/Safari) usá "Añadir a
+   pantalla de inicio"; en el ordenador (Chrome/Edge) el icono de
+   instalar aparece en la barra de direcciones. Es una PWA (`manifest.json`
+   + service worker), así que abre en su propia ventana sin barra del
+   navegador, en ambos dispositivos.
+
+**Límites que hay que conocer:**
+- `AGENT_DAILY_LIMIT` (por defecto 300 mensajes/día) frena el gasto de la
+  API si el token se filtra — ajustalo en Render si lo necesitás.
+- **No hay activación por voz ni por 3 aplausos en segundo plano.** Ningún
+  navegador (ni siquiera como PWA instalada) permite que una página web
+  escuche el micrófono de forma continua cuando no está en primer plano —
+  es una restricción de plataforma, no una limitación de este código. Lo
+  que sí tiene: un botón de micrófono (🎤) para dictar por voz mientras la
+  pestaña está abierta, y lectura en voz alta de las respuestas.
+- Sin token configurado, o sin red, el agente cae de vuelta a su base de
+  conocimiento local sobre 369/Tesla/Cábala (la misma del archivo
+  original) — sigue siendo útil offline, solo que sin IA real.
+
+## 7. Checklist de arranque
 
 - [x] Backend FastAPI con todos los endpoints del spec
 - [x] Modelo de datos / esquema de usuario
@@ -146,7 +189,9 @@ un iframe). Protegé esa página con Memberstack para que solo admins la vean
 - [x] Audit log
 - [x] Panel Streamlit con los 7 módulos
 - [x] `render.yaml` listo para blueprint deploy
+- [x] Agente personal `/agent` conectado a Claude (proxy server-side, PWA)
 - [ ] Configurar `SILIUN_ADMIN_TOKEN` real en Render
+- [ ] Configurar `ANTHROPIC_API_KEY` y `AGENT_TOKEN` reales en Render
 - [ ] Apuntar DNS en Cloudflare + firewall rules
 - [ ] Conectar `DISCORD_WEBHOOK_URL` para notificaciones
 - [ ] Embeber el panel en la página Webflow `/siliun/panel`
