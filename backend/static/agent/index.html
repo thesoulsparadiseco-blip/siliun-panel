@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>369 · Mi Agente Personal</title>
+<meta name="theme-color" content="#0e0d0c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Agente 369">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="icon" href="icon.svg">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
+
+  :root{
+    --copper: #b5804a;
+    --copper-bright: #d9a566;
+    --ink: #0e0d0c;
+    --parchment: #ece5d8;
+    --parchment-dim: #a89c88;
+    --line: #3a352c;
+    --ok: #7fae6c;
+    --warn: #e0644a;
+  }
+
+  *{ box-sizing:border-box; }
+
+  body{
+    margin:0;
+    background: radial-gradient(circle at 50% 18%, #1c1a15 0%, var(--ink) 60%);
+    color: var(--parchment);
+    font-family:'Cormorant Garamond', serif;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+
+  .frame{
+    width:100%;
+    max-width:640px;
+    border:1px solid var(--line);
+    background: rgba(20,18,14,0.6);
+    position:relative;
+  }
+  .frame::before{
+    content:'';
+    position:absolute;
+    inset:8px;
+    border:1px solid rgba(181,128,74,0.25);
+    pointer-events:none;
+  }
+
+  header{ padding:36px 32px 20px; text-align:center; border-bottom:1px solid var(--line); position:relative; }
+
+  .gear{
+    position:absolute; top:18px; right:18px;
+    background:transparent; border:1px solid var(--line); color:var(--parchment-dim);
+    width:30px; height:30px; cursor:pointer; font-size:14px; line-height:1;
+  }
+  .gear:hover{ border-color:var(--copper); color:var(--copper-bright); }
+
+  .dial{ width:64px; height:64px; margin:0 auto 14px; position:relative; }
+  .dial svg{ width:100%; height:100%; }
+  .dial circle{ fill:none; stroke:var(--copper); stroke-width:1; opacity:0.7; }
+  .dial text{ font-family:'Space Mono', monospace; fill: var(--copper-bright); font-size:11px; }
+
+  h1{
+    font-family:'Space Mono', monospace;
+    font-weight:700; font-size:13px; letter-spacing:0.35em; text-transform:uppercase;
+    margin:0 0 8px; color: var(--copper-bright);
+  }
+  header p{ margin:0; font-size:16px; color: var(--parchment-dim); font-style:italic; line-height:1.5; }
+
+  .status-tag{
+    margin-top:10px;
+    display:inline-flex; align-items:center; gap:6px;
+    font-family:'Space Mono', monospace;
+    font-size:9px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color: var(--copper);
+    border:1px solid var(--line);
+    padding:4px 10px;
+  }
+  .status-tag .dot{ width:6px; height:6px; border-radius:50%; background:var(--parchment-dim); }
+  .status-tag.connected{ color: var(--ok); }
+  .status-tag.connected .dot{ background: var(--ok); }
+  .status-tag.local{ color: var(--copper); }
+  .status-tag.local .dot{ background: var(--copper); }
+
+  .chat{
+    height:52vh; min-height:360px; overflow-y:auto;
+    padding:24px 28px; display:flex; flex-direction:column; gap:18px;
+  }
+  .chat::-webkit-scrollbar{ width:6px; }
+  .chat::-webkit-scrollbar-thumb{ background:var(--line); }
+
+  .msg{ max-width:88%; line-height:1.55; font-size:18px; white-space:pre-wrap; }
+  .msg.user{
+    align-self:flex-end; color: var(--ink); background: var(--parchment);
+    padding:10px 16px; border-radius:2px 2px 2px 14px;
+  }
+  .msg.agent{ align-self:flex-start; color: var(--parchment); position:relative; padding-left:16px; }
+  .msg.agent::before{
+    content:''; position:absolute; left:0; top:6px; bottom:6px; width:2px;
+    background: linear-gradient(var(--copper), transparent);
+  }
+  .msg.system{
+    align-self:center; font-family:'Space Mono', monospace; font-size:11px;
+    letter-spacing:0.12em; text-transform:uppercase; color: var(--parchment-dim); opacity:0.6;
+  }
+  .msg.thinking{ opacity:0.5; font-style:italic; }
+
+  .topics{ padding:0 28px 16px; }
+  .topics-label{
+    font-family:'Space Mono', monospace; font-size:10px; letter-spacing:0.12em;
+    text-transform:uppercase; color:var(--parchment-dim); opacity:0.6; margin-bottom:8px;
+  }
+  .quick{ display:flex; flex-wrap:wrap; gap:8px; }
+  .quick button{
+    font-family:'Space Mono', monospace; font-size:11px; letter-spacing:0.06em;
+    background:transparent; border:1px solid var(--line); color:var(--parchment-dim);
+    padding:8px 12px; cursor:pointer; transition:border-color .2s, color .2s;
+  }
+  .quick button:hover{ border-color:var(--copper); color:var(--copper-bright); }
+
+  .voice-bar{
+    display:flex; align-items:center; flex-wrap:wrap; gap:10px;
+    padding:0 28px 14px;
+    font-family:'Space Mono', monospace;
+    font-size:10px; letter-spacing:0.1em; text-transform:uppercase;
+    color:var(--parchment-dim);
+  }
+  .voice-toggle.armed{ animation: pulse 1.6s infinite; }
+  .voice-toggle{
+    display:flex; align-items:center; gap:6px;
+    background:transparent; border:1px solid var(--line); color:var(--parchment-dim);
+    padding:6px 10px; cursor:pointer; transition:border-color .2s, color .2s;
+  }
+  .voice-toggle.on{ border-color:var(--copper); color:var(--copper-bright); }
+  .voice-toggle .dot{ width:6px; height:6px; border-radius:50%; background:var(--parchment-dim); }
+  .voice-toggle.on .dot{ background:var(--copper-bright); }
+
+  select#voiceSelect{
+    background:transparent; border:1px solid var(--line); color:var(--parchment);
+    font-family:'Space Mono', monospace; font-size:11px; padding:6px 8px; max-width:260px;
+  }
+  select#voiceSelect option{ background:var(--ink); color:var(--parchment); }
+
+  form{ display:flex; align-items:stretch; border-top:1px solid var(--line); }
+  .mic-btn{
+    font-family:'Space Mono', monospace;
+    background:transparent; border:none; border-right:1px solid var(--line);
+    color:var(--parchment-dim); width:56px; cursor:pointer; font-size:18px;
+    transition:color .2s, background .2s;
+  }
+  .mic-btn:hover{ color:var(--copper-bright); }
+  .mic-btn.recording{ color:#e0644a; background:rgba(224,100,74,0.08); animation:pulse 1.2s infinite; }
+  @keyframes pulse{ 0%,100%{ opacity:1; } 50%{ opacity:0.4; } }
+  .mic-unavailable{ opacity:0.3; cursor:not-allowed; }
+  textarea{
+    flex:1; resize:none; background:transparent; border:none; outline:none;
+    color:var(--parchment); font-family:'Cormorant Garamond', serif; font-size:17px;
+    padding:18px 20px; line-height:1.4;
+  }
+  textarea::placeholder{ color:var(--parchment-dim); opacity:0.6; }
+  button.send{
+    font-family:'Space Mono', monospace; font-size:11px; letter-spacing:0.15em; text-transform:uppercase;
+    background:transparent; border:none; border-left:1px solid var(--line); color:var(--copper-bright);
+    padding:0 26px; cursor:pointer;
+  }
+  button.send:hover{ background:rgba(181,128,74,0.08); }
+
+  footer{
+    padding:14px 28px 22px; text-align:center; font-family:'Space Mono', monospace;
+    font-size:10px; letter-spacing:0.08em; color: var(--parchment-dim); opacity:0.55;
+  }
+
+  .overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.7);
+    display:none; align-items:center; justify-content:center; padding:24px; z-index:10;
+  }
+  .overlay.show{ display:flex; }
+  .modal{
+    width:100%; max-width:420px; background:var(--ink); border:1px solid var(--line);
+    padding:28px; font-family:'Cormorant Garamond', serif;
+  }
+  .modal h2{
+    font-family:'Space Mono', monospace; font-size:12px; letter-spacing:0.2em; text-transform:uppercase;
+    color:var(--copper-bright); margin:0 0 14px;
+  }
+  .modal p{ font-size:15px; color:var(--parchment-dim); line-height:1.5; margin:0 0 16px; }
+  .modal input{
+    width:100%; background:transparent; border:1px solid var(--line); color:var(--parchment);
+    font-family:'Space Mono', monospace; font-size:13px; padding:10px 12px; margin-bottom:14px; outline:none;
+  }
+  .modal input:focus{ border-color:var(--copper); }
+  .modal-actions{ display:flex; gap:10px; justify-content:flex-end; }
+  .modal-actions button{
+    font-family:'Space Mono', monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase;
+    background:transparent; border:1px solid var(--line); color:var(--parchment-dim);
+    padding:9px 16px; cursor:pointer;
+  }
+  .modal-actions button.primary{ border-color:var(--copper); color:var(--copper-bright); }
+  .modal-actions button:hover{ border-color:var(--copper-bright); }
+</style>
+</head>
+<body>
+
+<div class="frame">
+  <header>
+    <button type="button" class="gear" id="gearBtn" title="Configurar mi agente">⚙</button>
+    <div class="dial">
+      <svg viewBox="0 0 64 64">
+        <circle cx="32" cy="32" r="30"/>
+        <circle cx="32" cy="32" r="22"/>
+        <text x="28" y="14">3</text>
+        <text x="54" y="36">6</text>
+        <text x="26" y="58">9</text>
+      </svg>
+    </div>
+    <h1>369 · Mi Agente Personal</h1>
+    <p>Reflexión sobre número, patrón y resonancia — con acceso real a Claude</p>
+    <span class="status-tag" id="statusTag"><span class="dot"></span> comprobando...</span>
+  </header>
+
+  <div class="chat" id="chat"></div>
+
+  <div class="topics">
+    <div class="topics-label">Temas guardados localmente <span id="learnLabel"></span></div>
+    <div class="quick" id="quickButtons"></div>
+  </div>
+
+  <div class="voice-bar">
+    <button type="button" class="voice-toggle" id="voiceToggle"><span class="dot"></span> Leer respuestas en voz alta</button>
+    <button type="button" class="voice-toggle" id="activationToggle" title="Escucha 3 aplausos o 'oye agente' mientras esta pestaña está abierta y visible"><span class="dot"></span> Activar con voz / 3 aplausos</button>
+    <button type="button" class="voice-toggle" id="compressToggle"><span class="dot"></span> Ver historial completo</button>
+  </div>
+  <div class="voice-bar" id="voiceSelectBar" style="display:none;">
+    <span style="opacity:0.6;">Voz:</span>
+    <select id="voiceSelect"></select>
+  </div>
+
+  <form id="form">
+    <button type="button" class="mic-btn" id="micBtn" title="Hablar">🎤</button>
+    <textarea id="input" rows="1" placeholder="Escribe o habla tu pregunta..."></textarea>
+    <button class="send" id="sendBtn" type="submit">Enviar</button>
+  </form>
+
+  <footer>Este agente es tuyo: solo responde con tu token personal.<br>Sin conexión o sin token, cae de vuelta a su base de conocimiento local sobre 369 y Cábala.<br>La activación por voz/aplausos solo funciona mientras esta pestaña está abierta y visible — ningún navegador permite escucharte con la pantalla apagada o la app en segundo plano.</footer>
+</div>
+
+<div class="overlay" id="settingsOverlay">
+  <div class="modal">
+    <h2>Configura tu agente</h2>
+    <p>Pega aquí tu token personal (el valor de <b>AGENT_TOKEN</b> configurado en el servidor). Se guarda solo en este dispositivo, nunca se comparte.</p>
+    <input type="password" id="tokenInput" placeholder="Token personal" autocomplete="off">
+    <div class="modal-actions">
+      <button type="button" id="clearTokenBtn">Borrar</button>
+      <button type="button" id="saveTokenBtn" class="primary">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   BASE DE CONOCIMIENTO LOCAL — respaldo sin conexión / sin token.
+   El modo principal usa la API real de Claude vía /api/agent/chat.
+   ============================================================ */
+const KNOWLEDGE = [
+  {
+    id: 'origen',
+    label: 'Origen de la cita',
+    keywords: ['origen','cita','tesla dijo','historia','real','verdad','atribuida','quien lo dijo'],
+    answer: `La frase "Si supieras la magnificencia del 3, el 6 y el 9, tendrías la clave del universo" NO aparece en ningún escrito, carta o patente documentada de Nikola Tesla. Es una atribución popularizada mucho después de su muerte (1943), probablemente en círculos de divulgación espiritual de finales del siglo XX.
+
+Lo que sí es real: Tesla tuvo un interés genuino y documentado por los patrones, la resonancia y las frecuencias — pero en el terreno de la ingeniería eléctrica (corriente alterna, resonancia electromagnética, transmisión inalámbrica de energía), no en la numerología.
+
+Es importante partir de esto con honestidad: es folclore inspirador, no una teoría física publicada por él.`,
+    related: ['rodin','tesla-real']
+  },
+  {
+    id: 'rodin',
+    label: 'Matemática vórtice (Rodin)',
+    keywords: ['rodin','vortice','vórtice','marko','matematica vortice','origen moderno'],
+    answer: `El sistema 3-6-9 que circula hoy bajo el nombre de Tesla tiene su origen moderno real en Marko Rodin, un matemático aficionado que en los años 90 desarrolló la "matemática vórtice" (Vortex-Based Mathematics).
+
+Rodin tomó la secuencia de duplicación (1→2→4→8→7→5→1...) reducida a un solo dígito, la organizó en un círculo, y notó que el 3, el 6 y el 9 quedan fuera de ese ciclo — como si "vigilaran" al resto de los números. De ahí nació el símbolo visual del toroide con el 3-6-9 al centro que se asocia (erróneamente) con Tesla.`,
+    related: ['duplicacion','origen']
+  },
+  {
+    id: 'duplicacion',
+    label: 'La secuencia de duplicación',
+    keywords: ['duplicacion','secuencia','1 2 4 8 7 5','ciclo','patron numerico'],
+    answer: `Si tomas un número, lo duplicas una y otra vez, y reduces cada resultado a un solo dígito (sumando sus cifras), obtienes este ciclo:
+
+1 → 2 → 4 → 8 → 7 → 5 → 1 → 2 → 4...
+
+Fíjate: el 3, el 6 y el 9 nunca aparecen en este ciclo particular. Esto es un hecho matemático verificable y reproducible — puedes comprobarlo tú mismo con lápiz y papel. Lo que ya es interpretación (no matemática) es darle a esta ausencia un significado místico o "cósmico".`,
+    related: ['prueba9','rodin']
+  },
+  {
+    id: 'prueba9',
+    label: 'La prueba del nueve',
+    keywords: ['prueba del nueve','raiz digital','digito','digital root','multiplo de 9','nueve'],
+    answer: `Esta es la parte más sólida matemáticamente de todo el sistema. La "raíz digital" (reducir un número a un solo dígito sumando sus cifras repetidamente) tiene una propiedad real y demostrable:
+
+Cualquier múltiplo de 9, al reducirlo así, siempre da 9.
+Ejemplo: 9 × 7 = 63 → 6+3 = 9
+Ejemplo: 9 × 124 = 1116 → 1+1+1+6 = 9
+
+Esto no es magia: es consecuencia directa de que usamos un sistema numérico en base 10 (y 9 = 10−1). Se conoce desde hace siglos en India y el mundo árabe como "prueba del nueve", un método antiguo para verificar cálculos aritméticos a mano — mucho antes de cualquier atribución a Tesla.
+
+Otra propiedad relacionada: si a cualquier número le restas la suma de sus propios dígitos, el resultado siempre es múltiplo de 9.
+Ejemplo: 52 − (5+2) = 45 → 45 ÷ 9 = 5`,
+    related: ['duplicacion','guematria']
+  },
+  {
+    id: 'que-no-es',
+    label: 'Qué NO es este sistema',
+    keywords: ['no es','azar','ruleta','loteria','apuesta','predecir','prediccion','casino','cartas','ganar'],
+    answer: `Este sistema no es, y no puede ser, un método de predicción de resultados aleatorios — ni de ruleta, lotería, cartas ni ningún juego de azar. Cada evento en esos juegos es matemáticamente independiente del anterior: el resultado de un giro no depende de los giros previos.
+
+Ningún patrón numérico — sea el 3-6-9, Fibonacci, o cualquier otro sistema — cambia esa probabilidad. Presentar este contenido como herramienta de predicción sería pseudociencia, sin importar el envoltorio simbólico.
+
+Tampoco es una teoría física reconocida ni validada por Tesla mismo, y no sustituye pensamiento crítico ni decisiones financieras informadas.`,
+    related: ['aplicaciones']
+  },
+  {
+    id: 'aplicaciones',
+    label: 'Usos reflexivos',
+    keywords: ['aplicacion','uso','ejercicio','practica','reflexion','ritual','como usar'],
+    answer: `Formas en que este sistema se usa como herramienta de introspección, sin pretensión predictiva:
+
+— Reducción numérica de fechas: reducir una fecha significativa (como un cumpleaños) a un solo dígito, como ejercicio simbólico de reflexión, similar a la numerología tradicional.
+
+— Contemplación geométrica: el diagrama de Rodin (el círculo con 1-2-4-8-7-5 y el 3-6-9 al centro) se usa como mandala o figura para la meditación visual.
+
+— Atención cotidiana: notar patrones numéricos en la vida diaria como práctica de presencia — parecido a llevar un diario, no a predecir el futuro.`,
+    related: ['fecha-ejercicio','guematria-ejercicio']
+  },
+  {
+    id: 'fecha-ejercicio',
+    label: 'Ejercicio con tu fecha',
+    keywords: ['fecha de nacimiento','cumpleaños','mi fecha','calcula mi numero','ejercicio personal'],
+    answer: `Aquí tienes el ejercicio de reducción numérica, paso a paso, para que lo hagas tú mismo con cualquier fecha:
+
+1. Escribe la fecha completa en números (ej: 15 de marzo de 1990 → 15031990)
+2. Suma todos los dígitos: 1+5+0+3+1+9+9+0 = 28
+3. Si el resultado tiene más de un dígito, vuelve a sumarlos: 2+8 = 10 → 1+0 = 1
+4. Ese dígito final (1 al 9) es tu "número reducido"
+
+Este ejercicio es puramente simbólico — un punto de partida para la reflexión personal, no una predicción ni un diagnóstico de ningún tipo.`,
+    related: ['aplicaciones','guematria-ejercicio']
+  },
+  {
+    id: 'tesla-real',
+    label: 'El Tesla histórico',
+    keywords: ['tesla real','historia de tesla','corriente alterna','resonancia electrica','quien fue tesla'],
+    answer: `El trabajo real y documentado de Nikola Tesla (1856–1943) está en ingeniería eléctrica: fue pionero del sistema de corriente alterna (AC), estudió la resonancia electromagnética y experimentó con la transmisión inalámbrica de energía (la torre Wardenclyffe).
+
+Su fascinación por la resonancia y las frecuencias en el mundo físico es real — y es probablemente el hilo que, con el tiempo y fuera de contexto, se transformó en la leyenda numerológica del 3-6-9 que circula hoy.`,
+    related: ['origen']
+  },
+  {
+    id: 'cabala-origen',
+    label: 'Qué es la Cábala',
+    keywords: ['cabala','kabbalah','que es la cabala','origen cabala','tradicion judia'],
+    answer: `La Cábala (del hebreo "Qabbalah", "recepción" o "tradición recibida") es una corriente de mística judía con raíces documentadas desde al menos el siglo XII en el sur de Francia y España. Su texto central es el Zóhar ("Esplendor"), y su marco conceptual principal es el Árbol de la Vida (Etz Jaím).
+
+A diferencia del sistema 3-6-9, la Cábala es una tradición religiosa y filosófica real, con siglos de textos y escuelas documentadas.`,
+    related: ['arbol-vida','cabala-vs-369']
+  },
+  {
+    id: 'arbol-vida',
+    label: 'El Árbol de la Vida',
+    keywords: ['arbol de la vida','sefirot','sefira','etz jaim','diagrama cabala'],
+    answer: `El Árbol de la Vida (Etz Jaím) es el diagrama central de la Cábala: diez esferas o emanaciones divinas llamadas Sefirot, conectadas por 22 senderos (uno por cada letra del alfabeto hebreo):
+
+Keter (Corona) · Jokmá (Sabiduría) · Biná (Entendimiento) · Jesed (Bondad) · Guevurá (Rigor) · Tiféret (Belleza/Equilibrio) · Nétzaj (Victoria) · Hod (Esplendor) · Yesod (Fundamento) · Maljut (Reino)`,
+    related: ['cabala-origen','guematria']
+  },
+  {
+    id: 'guematria',
+    label: 'Guematria (números hebreos)',
+    keywords: ['guematria','gematria','letras numeros hebreo','valor numerico','alfabeto hebreo'],
+    answer: `La Guematria es el sistema cabalístico que asigna un valor numérico a cada letra del alfabeto hebreo. Al sumar los valores de las letras de una palabra, se obtiene su "número", y palabras con el mismo valor se consideran conectadas simbólicamente.
+
+Ejemplo clásico: la palabra hebrea para "vida" (חי, "jai") suma 18. Por eso el número 18 y sus múltiplos se asocian con la vida y la buena fortuna en la cultura judía.`,
+    related: ['guematria-ejercicio','prueba9']
+  },
+  {
+    id: 'cabala-vs-369',
+    label: 'Cábala vs. sistema 3-6-9',
+    keywords: ['diferencia cabala tesla','cabala vs 369','comparacion','relacion entre'],
+    answer: `La Cábala y el sistema "3-6-9 de Tesla" NO son la misma tradición ni tienen el mismo origen, aunque ambas usan números con significado simbólico.
+
+— La Cábala es una tradición mística judía documentada desde hace casi mil años.
+— El sistema 3-6-9 es folclore numerológico moderno, popularizado por internet y atribuido erróneamente a Tesla.`,
+    related: ['origen','cabala-origen']
+  },
+  {
+    id: 'guematria-ejercicio',
+    label: 'Ejercicio de guematria',
+    keywords: ['ejercicio guematria','calcular mi nombre','valor de mi nombre','practica cabala'],
+    answer: `Un ejercicio contemplativo simple inspirado en la guematria, adaptado al alfabeto latino:
+
+1. Asigna A=1, B=2, C=3... Z=26 a cada letra de tu nombre
+2. Suma todos los valores
+3. Reduce el resultado a un solo dígito, igual que en el ejercicio del sistema 3-6-9
+
+Ejemplo con "ANA": A(1) + N(14) + A(1) = 16 → 1+6 = 7`,
+    related: ['fecha-ejercicio','guematria']
+  }
+];
+
+const FALLBACK = `No tengo esa información específica guardada en el modo local. Configura tu token (⚙ arriba a la derecha) para hablar con Claude sin límites de tema, o prueba con uno de los botones de arriba.`;
+
+const chat = document.getElementById('chat');
+const form = document.getElementById('form');
+const input = document.getElementById('input');
+const quickContainer = document.getElementById('quickButtons');
+const learnLabel = document.getElementById('learnLabel');
+const compressToggle = document.getElementById('compressToggle');
+const statusTag = document.getElementById('statusTag');
+const gearBtn = document.getElementById('gearBtn');
+const settingsOverlay = document.getElementById('settingsOverlay');
+const tokenInput = document.getElementById('tokenInput');
+const saveTokenBtn = document.getElementById('saveTokenBtn');
+const clearTokenBtn = document.getElementById('clearTokenBtn');
+
+const TOKEN_KEY = 'siliun_agent_token';
+let sessionMemory = {};
+let chatLog = [];
+let showFullHistory = false;
+const VISIBLE_TAIL = 3;
+
+function getToken(){ return localStorage.getItem(TOKEN_KEY) || ''; }
+
+function setStatus(state){
+  // state: 'connected' | 'local' | 'checking'
+  statusTag.className = 'status-tag' + (state === 'connected' ? ' connected' : state === 'local' ? ' local' : '');
+  statusTag.innerHTML = '<span class="dot"></span> ' +
+    (state === 'connected' ? 'Conectado a Claude' : state === 'local' ? 'Modo local (sin token o sin red)' : 'comprobando...');
+}
+
+function openSettings(){
+  tokenInput.value = getToken();
+  settingsOverlay.classList.add('show');
+  tokenInput.focus();
+}
+function closeSettings(){ settingsOverlay.classList.remove('show'); }
+
+gearBtn.addEventListener('click', openSettings);
+saveTokenBtn.addEventListener('click', ()=>{
+  const v = tokenInput.value.trim();
+  if(v) localStorage.setItem(TOKEN_KEY, v); else localStorage.removeItem(TOKEN_KEY);
+  closeSettings();
+  setStatus(v ? 'connected' : 'local');
+});
+clearTokenBtn.addEventListener('click', ()=>{
+  localStorage.removeItem(TOKEN_KEY);
+  tokenInput.value = '';
+  closeSettings();
+  setStatus('local');
+});
+settingsOverlay.addEventListener('click', (e)=>{ if(e.target === settingsOverlay) closeSettings(); });
+
+function byId(id){ return KNOWLEDGE.find(e => e.id === id); }
+
+function renderQuickButtons(){
+  quickContainer.innerHTML = '';
+  const ordered = [...KNOWLEDGE].sort((a,b)=>{
+    const av = sessionMemory[a.id] || 0;
+    const bv = sessionMemory[b.id] || 0;
+    return av - bv;
+  });
+  ordered.forEach(entry=>{
+    const btn = document.createElement('button');
+    btn.textContent = entry.label + (sessionMemory[entry.id] ? ' ✓' : '');
+    btn.addEventListener('click', ()=> handleUserText(entry.label));
+    quickContainer.appendChild(btn);
+  });
+  const exploredCount = Object.keys(sessionMemory).length;
+  learnLabel.textContent = exploredCount > 0 ? `— ${exploredCount}/${KNOWLEDGE.length} vistos` : '';
+}
+
+function findLocalMatch(query){
+  const q = query.toLowerCase();
+  let best = null, bestScore = 0;
+  KNOWLEDGE.forEach(entry=>{
+    let score = 0;
+    entry.keywords.forEach(kw=>{ if(q.includes(kw)) score += kw.length; });
+    if(score > bestScore){ bestScore = score; best = entry; }
+  });
+  return bestScore > 0 ? best : null;
+}
+
+function renderBubble(container, m){
+  const div = document.createElement('div');
+  div.className = 'msg ' + m.role;
+  div.textContent = m.text;
+  container.appendChild(div);
+}
+
+function renderChat(){
+  chat.innerHTML = '';
+  if(chatLog.length === 0){
+    const introDiv = document.createElement('div');
+    introDiv.className = 'msg agent';
+    introDiv.textContent = 'Bienvenido de vuelta. Configura tu token (⚙) para hablar conmigo con acceso completo a Claude — sin token, respondo con mi base de conocimiento local sobre 369 y Cábala.';
+    chat.appendChild(introDiv);
+    return;
+  }
+  const totalExchanges = chatLog.length;
+  if(!showFullHistory && totalExchanges > VISIBLE_TAIL * 2){
+    const hiddenCount = totalExchanges - VISIBLE_TAIL * 2;
+    const hidden = chatLog.slice(0, hiddenCount);
+    const visible = chatLog.slice(hiddenCount);
+    const summaryDiv = document.createElement('div');
+    summaryDiv.className = 'msg system';
+    summaryDiv.style.cursor = 'pointer';
+    summaryDiv.title = 'Click para expandir';
+    summaryDiv.textContent = `🗜️ ${hidden.length} mensajes comprimidos`;
+    summaryDiv.addEventListener('click', ()=>{ showFullHistory = true; compressToggle.classList.add('on'); renderChat(); });
+    chat.appendChild(summaryDiv);
+    visible.forEach(m => renderBubble(chat, m));
+  } else {
+    chatLog.forEach(m => renderBubble(chat, m));
+  }
+  chat.scrollTop = chat.scrollHeight;
+}
+
+async function askClaude(message, history){
+  const token = getToken();
+  if(!token) throw new Error('no-token');
+  const resp = await fetch('/api/agent/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+    body: JSON.stringify({ message, history })
+  });
+  if(!resp.ok) throw new Error('http-' + resp.status);
+  const data = await resp.json();
+  return data.reply;
+}
+
+async function handleUserText(text){
+  const history = chatLog
+    .filter(m => m.role === 'user' || m.role === 'agent')
+    .slice(-20)
+    .map(m => ({ role: m.role, text: m.text }));
+
+  chatLog.push({ role:'user', text });
+  renderChat();
+
+  const thinking = { role:'thinking', text:'…' };
+  chatLog.push(thinking);
+  renderChat();
+
+  let answer, matchedEntry = null;
+  try{
+    answer = await askClaude(text, history);
+    setStatus('connected');
+  }catch(err){
+    setStatus('local');
+    matchedEntry = findLocalMatch(text);
+    answer = matchedEntry ? matchedEntry.answer : FALLBACK;
+    if(matchedEntry) sessionMemory[matchedEntry.id] = (sessionMemory[matchedEntry.id] || 0) + 1;
+  }
+
+  chatLog.pop(); // remove "thinking" placeholder
+  chatLog.push({ role:'agent', text: answer });
+  renderChat();
+  renderQuickButtons();
+  speak(answer);
+}
+
+compressToggle.addEventListener('click', ()=>{
+  showFullHistory = !showFullHistory;
+  compressToggle.classList.toggle('on', showFullHistory);
+  renderChat();
+});
+
+renderQuickButtons();
+renderChat();
+setStatus(getToken() ? 'connected' : 'local');
+if(!getToken()) openSettings();
+
+form.addEventListener('submit', (e)=>{
+  e.preventDefault();
+  const text = input.value.trim();
+  if(!text) return;
+  handleUserText(text);
+  input.value = '';
+});
+
+input.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter' && !e.shiftKey){
+    e.preventDefault();
+    form.dispatchEvent(new Event('submit'));
+  }
+});
+
+/* ============================================================
+   VOZ — reconocimiento de habla (micrófono) y texto a voz.
+   Activación solo bajo demanda (botón), no hay escucha pasiva de
+   fondo: ningún navegador permite eso de forma fiable para una
+   página web, ni siquiera instalada como PWA.
+   ============================================================ */
+const micBtn = document.getElementById('micBtn');
+const voiceToggle = document.getElementById('voiceToggle');
+const voiceSelectBar = document.getElementById('voiceSelectBar');
+const voiceSelect = document.getElementById('voiceSelect');
+let voiceOn = false;
+let recognizing = false;
+let selectedVoiceURI = null;
+
+voiceToggle.addEventListener('click', ()=>{
+  voiceOn = !voiceOn;
+  voiceToggle.classList.toggle('on', voiceOn);
+  voiceSelectBar.style.display = voiceOn ? 'flex' : 'none';
+  if(!voiceOn) speechSynthesis.cancel();
+});
+
+function populateVoiceList(){
+  if(!('speechSynthesis' in window)) return;
+  const voices = speechSynthesis.getVoices();
+  if(!voices.length) return;
+  const sorted = [...voices].sort((a,b)=>{
+    const aEs = a.lang.toLowerCase().startsWith('es') ? 0 : 1;
+    const bEs = b.lang.toLowerCase().startsWith('es') ? 0 : 1;
+    if(aEs !== bEs) return aEs - bEs;
+    return a.name.localeCompare(b.name);
+  });
+  voiceSelect.innerHTML = '';
+  sorted.forEach(v=>{
+    const opt = document.createElement('option');
+    opt.value = v.voiceURI;
+    opt.textContent = `${v.name} (${v.lang})${v.localService ? '' : ' · remota'}`;
+    voiceSelect.appendChild(opt);
+  });
+  if(!selectedVoiceURI){
+    const firstEs = sorted.find(v => v.lang.toLowerCase().startsWith('es'));
+    selectedVoiceURI = (firstEs || sorted[0]).voiceURI;
+  }
+  voiceSelect.value = selectedVoiceURI;
+}
+
+voiceSelect.addEventListener('change', ()=>{ selectedVoiceURI = voiceSelect.value; });
+
+populateVoiceList();
+if('speechSynthesis' in window){ speechSynthesis.onvoiceschanged = populateVoiceList; }
+
+function speak(text){
+  if(!voiceOn || !('speechSynthesis' in window)) return;
+  speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = 'es-ES';
+  utter.rate = 0.98;
+  utter.pitch = 0.95;
+  const voices = speechSynthesis.getVoices();
+  const chosen = voices.find(v => v.voiceURI === selectedVoiceURI);
+  if(chosen){ utter.voice = chosen; utter.lang = chosen.lang; }
+  speechSynthesis.speak(utter);
+}
+
+const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognition = null;
+
+if(SpeechRecognitionAPI){
+  recognition = new SpeechRecognitionAPI();
+  recognition.lang = 'es-ES';
+  recognition.continuous = false;
+  recognition.interimResults = false;
+
+  recognition.onstart = ()=>{
+    recognizing = true; micBtn.classList.add('recording'); micBtn.textContent = '●';
+    pauseWakeWordWhileDictating();
+  };
+  recognition.onend = ()=>{
+    recognizing = false; micBtn.classList.remove('recording'); micBtn.textContent = '🎤';
+    resumeWakeWordAfterDictating();
+  };
+  recognition.onerror = ()=>{ recognizing = false; micBtn.classList.remove('recording'); micBtn.textContent = '🎤'; };
+  recognition.onresult = (event)=>{
+    const transcript = event.results[0][0].transcript;
+    input.value = transcript;
+    form.dispatchEvent(new Event('submit'));
+  };
+
+  micBtn.addEventListener('click', ()=>{
+    if(recognizing){ recognition.stop(); return; }
+    try{ recognition.start(); }catch(e){ /* ya iniciado */ }
+  });
+}else{
+  micBtn.classList.add('mic-unavailable');
+  micBtn.title = 'Reconocimiento de voz no disponible en este navegador';
+  micBtn.addEventListener('click', ()=>{
+    chatLog.push({ role:'system', text: 'Tu navegador no soporta reconocimiento de voz. Prueba con Chrome o Edge.' });
+    renderChat();
+  });
+}
+
+/* ============================================================
+   ACTIVACIÓN EN PRIMER PLANO — 3 aplausos o palabra clave de voz.
+   Solo corre mientras esta pestaña está abierta y visible: es el
+   límite real de cualquier navegador, en móvil y en ordenador —
+   no hay forma de escuchar con la pantalla apagada o en segundo
+   plano desde una página web (ni siquiera instalada como PWA).
+   ============================================================ */
+const activationToggle = document.getElementById('activationToggle');
+const WAKE_WORDS = ['oye agente', 'hola agente', 'agente'];
+const CLAP_THRESHOLD = 0.35;
+const CLAP_COOLDOWN_MS = 250;
+const CLAP_WINDOW_MS = 1400;
+
+let activationOn = false;
+let audioCtx = null, analyser = null, micStream = null;
+let clapTimestamps = [];
+let clapLoopId = null;
+let wakeRecognition = null;
+
+function systemNote(text){
+  chatLog.push({ role:'system', text });
+  renderChat();
+}
+
+function onActivationTriggered(source, spokenRest){
+  systemNote(source === 'aplausos' ? '👏 3 aplausos detectados — te escucho.' : '🎙️ Palabra clave detectada — te escucho.');
+  input.focus();
+  if(spokenRest){
+    input.value = spokenRest;
+    form.dispatchEvent(new Event('submit'));
+  }else if(recognition && !recognizing){
+    try{ recognition.start(); }catch(e){ /* ya iniciado */ }
+  }
+}
+
+function startClapDetector(){
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+    micStream = stream;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioCtx.createMediaStreamSource(stream);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 512;
+    source.connect(analyser);
+
+    const data = new Uint8Array(analyser.fftSize);
+    let lastClapAt = 0;
+
+    const loop = () => {
+      if(!activationOn){ clapLoopId = null; return; }
+      if(document.hidden){ clapLoopId = requestAnimationFrame(loop); return; }
+      analyser.getByteTimeDomainData(data);
+      let peak = 0;
+      for(let i = 0; i < data.length; i++){
+        const v = Math.abs(data[i] - 128) / 128;
+        if(v > peak) peak = v;
+      }
+      const now = performance.now();
+      if(peak > CLAP_THRESHOLD && now - lastClapAt > CLAP_COOLDOWN_MS){
+        lastClapAt = now;
+        clapTimestamps.push(now);
+        clapTimestamps = clapTimestamps.filter(t => now - t <= CLAP_WINDOW_MS);
+        if(clapTimestamps.length >= 3){
+          clapTimestamps = [];
+          onActivationTriggered('aplausos');
+        }
+      }
+      clapLoopId = requestAnimationFrame(loop);
+    };
+    clapLoopId = requestAnimationFrame(loop);
+  }).catch(err => {
+    systemNote('No se pudo activar la escucha de aplausos: ' + err.message);
+  });
+}
+
+function stopClapDetector(){
+  if(clapLoopId){ cancelAnimationFrame(clapLoopId); clapLoopId = null; }
+  if(micStream){ micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+  if(audioCtx){ audioCtx.close().catch(()=>{}); audioCtx = null; }
+  analyser = null;
+  clapTimestamps = [];
+}
+
+function startWakeWordRecognition(){
+  if(!SpeechRecognitionAPI) return;
+  wakeRecognition = new SpeechRecognitionAPI();
+  wakeRecognition.lang = 'es-ES';
+  wakeRecognition.continuous = true;
+  wakeRecognition.interimResults = false;
+
+  wakeRecognition.onresult = (event) => {
+    const last = event.results[event.results.length - 1];
+    const transcript = last[0].transcript.toLowerCase().trim();
+    const hit = WAKE_WORDS.find(w => transcript.includes(w));
+    if(hit){
+      const rest = transcript.split(hit)[1]?.trim();
+      onActivationTriggered('voz', rest || null);
+    }
+  };
+  wakeRecognition.onerror = () => { /* se reintenta en onend */ };
+  wakeRecognition.onend = () => {
+    if(activationOn && !document.hidden && !recognizing){
+      try{ wakeRecognition.start(); }catch(e){ /* ya iniciado */ }
+    }
+  };
+  try{ wakeRecognition.start(); }catch(e){ /* ya iniciado */ }
+}
+
+function stopWakeWordRecognition(){
+  if(wakeRecognition){
+    wakeRecognition.onend = null;
+    try{ wakeRecognition.stop(); }catch(e){}
+    wakeRecognition = null;
+  }
+}
+
+function pauseWakeWordWhileDictating(){
+  if(wakeRecognition){ try{ wakeRecognition.stop(); }catch(e){} }
+}
+function resumeWakeWordAfterDictating(){
+  if(activationOn && SpeechRecognitionAPI && !document.hidden && !wakeRecognition){
+    startWakeWordRecognition();
+  }
+}
+
+activationToggle.addEventListener('click', () => {
+  activationOn = !activationOn;
+  activationToggle.classList.toggle('on', activationOn);
+  activationToggle.classList.toggle('armed', activationOn);
+  if(activationOn){
+    systemNote('Escucha activa en esta pestaña: di "agente" o da 3 aplausos para hablarme. Se apaga si cierras o minimizas la pestaña.');
+    startClapDetector();
+    startWakeWordRecognition();
+  }else{
+    stopClapDetector();
+    stopWakeWordRecognition();
+  }
+});
+
+document.addEventListener('visibilitychange', () => {
+  if(!activationOn) return;
+  if(document.hidden){
+    // el detector de aplausos se auto-pausa (ver el chequeo de document.hidden
+    // dentro de su propio loop) y se reanuda solo al volver a ser visible;
+    // el reconocimiento de voz sí hay que pararlo y reiniciarlo a mano.
+    stopWakeWordRecognition();
+  }else if(!wakeRecognition){
+    startWakeWordRecognition();
+  }
+});
+
+window.addEventListener('beforeunload', () => {
+  stopClapDetector();
+  stopWakeWordRecognition();
+});
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+}
+</script>
+
+</body>
+</html>

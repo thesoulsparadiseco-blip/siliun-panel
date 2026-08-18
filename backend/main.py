@@ -21,12 +21,17 @@ is the admin UI that calls this API, which matches the spec's actual
 Webflow-panel-calls-backend architecture.
 """
 import os
+import pathlib
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
-from . import storage, logic, audit, notify
+from . import storage, logic, audit, notify, claude_client
 from .auth import verify_admin
-from .models import StateUpdate, NoteUpdate, MessagePayload, AuditLogEntry, UserCreate
+from .agent_auth import verify_agent
+from .models import StateUpdate, NoteUpdate, MessagePayload, AuditLogEntry, UserCreate, AgentChatRequest
+
+AGENT_DAILY_LIMIT = int(os.getenv("AGENT_DAILY_LIMIT", "300"))
 
 app = FastAPI(title="Siliun Panel Admin API", version="1.0.0")
 
@@ -196,3 +201,25 @@ def manual_audit_log(entry: AuditLogEntry, admin: str = Depends(verify_admin)):
 @app.get("/admin/audit/log")
 def get_audit_log(limit: int = 100, admin: str = Depends(verify_admin)):
     return storage.get_audit(limit)
+
+
+# ---------------- Personal agent (/agent frontend, Claude-backed) ----------------
+
+@app.post("/api/agent/chat")
+def agent_chat(payload: AgentChatRequest, token: str = Depends(verify_agent)):
+    try:
+        storage.check_rate_limit("agent-chat", limit=AGENT_DAILY_LIMIT)
+    except storage.RateLimitExceeded as e:
+        raise HTTPException(429, str(e))
+
+    try:
+        reply = claude_client.ask(payload.message, payload.history)
+    except RuntimeError as e:
+        raise HTTPException(502, str(e))
+
+    return {"reply": reply}
+
+
+_AGENT_STATIC_DIR = pathlib.Path(__file__).parent / "static" / "agent"
+if _AGENT_STATIC_DIR.exists():
+    app.mount("/agent", StaticFiles(directory=str(_AGENT_STATIC_DIR), html=True), name="agent-frontend")
