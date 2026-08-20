@@ -309,10 +309,30 @@
         </div>
         <div class="field">
           <div class="label">Sala</div>
-          <input id="roomInput" type="text" placeholder="Ej. equipo-ventas" />
+          <div class="row" style="align-items: flex-end;">
+            <div style="flex: 1;">
+              <input id="roomInput" type="text" placeholder="Ej. equipo-ventas" />
+            </div>
+            <button id="newRoomBtn" class="btn-secondary" type="button" style="flex: none; width: auto; white-space: nowrap;">Sala nueva</button>
+          </div>
         </div>
         <button id="joinBtn" class="btn-primary">Entrar a la sala</button>
         <div id="joinError" class="error"></div>
+        <div id="joinedFromInvite" class="hidden" style="margin-top: 4px;">
+          <div class="status">
+            <div class="dot green"></div>
+            <span>Te invitaron a esta sala — escribí tu nombre y entrá.</span>
+          </div>
+        </div>
+
+        <div id="inviteBox" class="hidden" style="margin-top: 18px;">
+          <div class="label" style="margin-bottom: 8px;">Invitar a esta sala</div>
+          <div style="background: #0b0f14; border: 1px solid #222; border-radius: 12px; padding: 14px; text-align: center;">
+            <img id="inviteQr" alt="Código QR para entrar a la sala" style="width: 168px; height: 168px; border-radius: 8px; background: #fff; padding: 8px;" />
+            <div id="inviteUrl" style="font-size: 0.75rem; color: #a0a0a0; word-break: break-all; margin-top: 10px;"></div>
+            <button id="copyInviteBtn" class="btn-secondary" type="button" style="margin-top: 10px;">Copiar enlace</button>
+          </div>
+        </div>
       </div>
 
       <div id="callScreenWrap" class="hidden">
@@ -442,9 +462,79 @@
     const leaveBtn = document.getElementById("leaveBtn");
     const videoServerDot = document.getElementById("videoServerDot");
     const videoServerText = document.getElementById("videoServerText");
+    const newRoomBtn = document.getElementById("newRoomBtn");
+    const inviteBox = document.getElementById("inviteBox");
+    const inviteQr = document.getElementById("inviteQr");
+    const inviteUrl = document.getElementById("inviteUrl");
+    const copyInviteBtn = document.getElementById("copyInviteBtn");
+    const joinedFromInvite = document.getElementById("joinedFromInvite");
 
     let micOn = true;
     let camOn = true;
+
+    /* ---- Invitar por código QR (sala temporal, sin escribir nada) ---- */
+    function randomRoomCode() {
+      const alphabet = "23456789abcdefghjkmnpqrstuvwxyz"; // sin 0/O/1/l/i, para leerlo facil
+      const bytes = new Uint8Array(6);
+      crypto.getRandomValues(bytes);
+      return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
+    }
+
+    function roomJoinUrl(room) {
+      const url = new URL(window.location.href);
+      url.search = "";
+      url.hash = "";
+      url.searchParams.set("room", room);
+      return url.toString();
+    }
+
+    function updateInviteBox() {
+      const room = roomInput.value.trim();
+      if (!room) {
+        inviteBox.classList.add("hidden");
+        return;
+      }
+      const link = roomJoinUrl(room);
+      inviteQr.src = `/qr?data=${encodeURIComponent(link)}`;
+      inviteUrl.textContent = link;
+      inviteBox.classList.remove("hidden");
+    }
+
+    newRoomBtn.addEventListener("click", () => {
+      roomInput.value = randomRoomCode();
+      updateInviteBox();
+    });
+    roomInput.addEventListener("input", updateInviteBox);
+
+    copyInviteBtn.addEventListener("click", async () => {
+      const link = roomJoinUrl(roomInput.value.trim());
+      try {
+        await navigator.clipboard.writeText(link);
+        copyInviteBtn.textContent = "¡Copiado!";
+      } catch {
+        copyInviteBtn.textContent = "No se pudo copiar";
+      }
+      setTimeout(() => (copyInviteBtn.textContent = "Copiar enlace"), 1800);
+    });
+
+    // Si entraste escaneando un QR / abriendo un link de invitación (?room=xxxx):
+    // te lleva directo a la pestaña de video con la sala ya cargada.
+    (function prefillFromInviteLink() {
+      const params = new URLSearchParams(window.location.search);
+      const invitedRoom = params.get("room");
+      if (!invitedRoom) return;
+
+      document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+      document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
+      document.querySelector('.tab-btn[data-tab="video"]').classList.add("active");
+      document.getElementById("tab-video").classList.add("active");
+      appRoot.classList.add("wide");
+
+      roomInput.value = invitedRoom;
+      joinedFromInvite.classList.remove("hidden");
+      inviteBox.classList.add("hidden");
+      setTimeout(() => nameInput.focus(), 50);
+    })();
 
     async function checkSignalingServer() {
       try {

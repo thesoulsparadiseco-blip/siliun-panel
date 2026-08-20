@@ -7,12 +7,14 @@ llamada y chat en vivo lo necesita, porque dos navegadores no pueden
 encontrarse ni intercambiar audio/video sin un intermediario.
 """
 
+import io
 import uuid
 from pathlib import Path
 from typing import Dict
 
+import qrcode
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
 app = FastAPI(title="Sistema de llamadas")
 
@@ -33,6 +35,16 @@ async def index():
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/qr")
+async def qr_code(data: str):
+    """Genera un QR con el link a una sala, para invitar sin escribir nada.
+    No queda guardado en ningun lado: se genera al vuelo en cada pedido."""
+    img = qrcode.make(data, border=2)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return Response(content=buf.getvalue(), media_type="image/png")
 
 
 @app.websocket("/ws/{room_id}")
