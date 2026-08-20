@@ -47,3 +47,23 @@ entra a la misma URL, escribe el mismo nombre de "Sala" y su propio nombre.
   ancho de banda del cliente se vuelve el cuello de botella.
 - El estado de las salas vive en memoria del proceso — si el servidor se
   reinicia, todas las salas activas se cierran.
+
+## Uso desde celular
+
+La interfaz es responsive (probada en simulación de iPhone y Android:
+sin scroll horizontal, inputs a 16px para que iOS no haga zoom automático,
+botones con área táctil de 44px, y el panel de chat con su propia altura
+para que no quede aplastado cuando video y chat se apilan en pantallas
+angostas).
+
+⚠️ **Pero ojo con esto:** los navegadores móviles solo dan permiso de
+cámara/micrófono en un sitio servido por **HTTPS** (o en `localhost`
+mismo). Si abrís la IP local de tu compu por `http://` desde el celular
+en la misma wifi, el navegador va a bloquear el permiso y la video
+llamada no va a funcionar — el registro offline sí, porque no usa
+cámara. Para que la video llamada ande de verdad en celulares:
+- Desplegalo en Render (Capítulo 5 / sección de abajo) — te da HTTPS
+  automático, o
+- Usá un túnel HTTPS temporal mientras desarrollás localmente (por
+  ejemplo `ngrok http 8000` o un Cloudflare Tunnel) y abrí esa URL
+  `https://...` desde el teléfono.
