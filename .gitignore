@@ -4,3 +4,5 @@ __pycache__/
 data/
 .streamlit/secrets.toml
 venv/
+offline-calls/cert.pem
+offline-calls/key.pem
