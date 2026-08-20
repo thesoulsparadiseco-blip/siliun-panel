@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
     body {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
       background: #050608;
@@ -92,8 +93,9 @@
       border: 1px solid #333;
       background: #0b0f14;
       color: #f5f5f5;
-      padding: 8px 10px;
-      font-size: 0.9rem;
+      padding: 10px 12px;
+      /* 16px minimo: por debajo de esto, Safari/iOS hace zoom automatico al enfocar */
+      font-size: 16px;
       outline: none;
       font-family: inherit;
     }
@@ -118,6 +120,7 @@
       cursor: pointer;
       font-weight: 600;
       font-family: inherit;
+      min-height: 44px;
     }
     .btn-primary {
       background: linear-gradient(135deg, #ffd700, #ffb300);
@@ -138,8 +141,9 @@
       background: #1b1f2b;
       color: #f5f5f5;
       border: 1px solid #333;
-      padding: 8px 12px;
+      padding: 11px 14px;
       font-size: 0.8rem;
+      min-height: 44px;
     }
     .btn-icon.off { color: #ff8a8a; border-color: #5a2226; }
 
@@ -169,7 +173,14 @@
       border: 1px solid #222;
       border-radius: 10px;
       background: #0b0f14;
+      height: 480px;
       max-height: 480px;
+    }
+    /* En pantallas angostas video-area y chat-area se apilan (flex-wrap):
+       sin una altura propia, chat-area quedaba comprimida a casi nada. */
+    @media (max-width: 620px) {
+      .chat-area { height: 360px; max-height: 360px; }
+      .video-grid { max-height: 44vh; overflow-y: auto; }
     }
     .room-bar {
       display: flex;
