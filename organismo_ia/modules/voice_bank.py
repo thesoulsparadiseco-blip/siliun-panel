@@ -11,6 +11,17 @@ real de audio sigue siendo responsabilidad de modules/voice.py
 Catálogo fijo a propósito: a diferencia de module_botanica (fórmulas
 editables en memory/internal), el banco de voces es identidad de marca
 del organismo, no un dato de usuario — no se expone `save_voice`.
+
+Motor de TTS: el organismo ya usa la Web Speech API del navegador
+(`speechSynthesis`, ver backend/static/agent/index.html y
+backend/static/organismo/index.html) — es device-bound, no requiere API
+key ni depende de un tercero, coherente con la sección 1 del spec
+("autosuficiente"). Por eso cada perfil trae `rate`/`pitch` ya afinados
+para `SpeechSynthesisUtterance`: no son una voz en sí (eso lo elige el
+navegador/dispositivo, hay decenas), son la sintonía que hace que
+*cualquier* voz del dispositivo suene como este personaje. Rangos
+típicos usables de la Web Speech API: rate 0.5–2.0 (1.0 = normal),
+pitch 0.0–2.0 (1.0 = normal).
 """
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
@@ -24,6 +35,8 @@ class VoiceProfile:
     ritmo: str
     intencion: str
     uso: str
+    rate: float
+    pitch: float
     paleta_sonica: Tuple[str, ...] = field(default_factory=tuple)
     frases_base: Tuple[str, ...] = field(default_factory=tuple)
 
@@ -35,6 +48,8 @@ class VoiceProfile:
             "ritmo": self.ritmo,
             "intencion": self.intencion,
             "uso": self.uso,
+            "rate": self.rate,
+            "pitch": self.pitch,
             "paleta_sonica": list(self.paleta_sonica),
             "frases_base": list(self.frases_base),
         }
@@ -48,6 +63,8 @@ _BANCO: Tuple[VoiceProfile, ...] = (
         ritmo="pausado, preciso, sin prisa",
         intencion="claridad, guía, enfoque mental",
         uso="activaciones, instrucciones, rituales de enfoque, voz principal de agentes",
+        rate=0.92,
+        pitch=0.95,
         paleta_sonica=("metal plateado", "aire frío", "resonancia limpia"),
         frases_base=(
             "Respira. Estoy aquí para guiarte.",
@@ -62,6 +79,8 @@ _BANCO: Tuple[VoiceProfile, ...] = (
         ritmo="firme, constante, con micro-pausas",
         intencion="fuerza, dirección, estructura",
         uso="motivación, entrenamiento, activaciones físicas, rituales solares",
+        rate=0.95,
+        pitch=0.85,
         paleta_sonica=("fuego solar", "madera cálida", "grave resonante"),
         frases_base=(
             "Activa tu fuerza interna.",
@@ -76,6 +95,8 @@ _BANCO: Tuple[VoiceProfile, ...] = (
         ritmo="fluido, envolvente",
         intencion="apertura, suavidad, claridad emocional",
         uso="meditaciones, brumas corporales, rituales de calma, guías sensoriales",
+        rate=1.0,
+        pitch=1.15,
         paleta_sonica=("cristal", "aire tibio", "luz suave"),
         frases_base=(
             "Abre el espacio interno.",
@@ -90,6 +111,8 @@ _BANCO: Tuple[VoiceProfile, ...] = (
         ritmo="lento, resonante, sintético",
         intencion="inmersión, presencia, espacio",
         uso="mundos Spatial, activaciones de portales, intros de sistemas 6G",
+        rate=0.82,
+        pitch=0.65,
         paleta_sonica=("bajo holográfico", "eco digital", "vibración profunda"),
         frases_base=(
             "Accediendo al espacio nodal.",
@@ -104,6 +127,8 @@ _BANCO: Tuple[VoiceProfile, ...] = (
         ritmo="rápido, eficiente",
         intencion="orden, lógica, ejecución",
         uso="agentes programadores, instrucciones técnicas, sistemas DeFi",
+        rate=1.18,
+        pitch=1.0,
         paleta_sonica=("código digital", "metal técnico", "clics sintéticos"),
         frases_base=(
             "Ejecutando instrucción.",
@@ -118,6 +143,8 @@ _BANCO: Tuple[VoiceProfile, ...] = (
         ritmo="dinámico, adaptable",
         intencion="estética, fluidez, creatividad",
         uso="ediciones de video, intros, trailers, contenido viral",
+        rate=1.08,
+        pitch=1.1,
         paleta_sonica=("aire creativo", "eco corto", "neón vibrante"),
         frases_base=(
             "Iniciando secuencia visual.",
