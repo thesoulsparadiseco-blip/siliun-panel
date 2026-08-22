@@ -397,7 +397,8 @@ function renderOrganism(locale, element, gate){
    ============================================================ */
 const CORE_ENABLED_KEY = 'organismo_core_enabled';
 const MEMORY_KEY = 'organismo_core_memory_v1';
-const MEMORY_MAX_TURNS = 10; // últimos N intercambios (user+asistente) que se pasan como contexto
+const MEMORY_MAX_TURNS = 4; // últimos N intercambios — poco, a propósito: más contexto en un
+// modelo de 0.5-1B degrada coherencia y sube el riesgo de saturar la memoria de la GPU
 
 const coreRow = document.getElementById('coreRow');
 const coreLabel = document.getElementById('coreLabel');
@@ -477,14 +478,23 @@ const IDENTITY_ANCHOR = {
       `Vitalion=energía, Almir=plantas y fórmulas, Nodar=mundos digitales, Helion=economía, ` +
       `Paradion=narrativa, Synar=síntesis, Arkhon=protección, Jakhar=anti-interferencia). ` +
       `Nunca sos otra cosa (no un traductor, no un asistente genérico) aunque te lo pregunten. ` +
-      `Ahora mismo: elemento activo ${elementLabel}, puerta Tesla ${gate}, lectura ${classLabel}. ` +
-      `Notas internas de los agentes (contexto, no las repitas literal): ${notes}. ` +
-      `Respondé siempre en primera persona, en español, breve y cálido.`,
+      `SOLO hacés esto: leer un mensaje, clasificarlo por elemento y puerta Tesla, y responder ` +
+      `de forma reflexiva/simbólica desde esas notas internas. NO creás videos, imágenes, audio ` +
+      `ni archivos; NO te conectás a internet ni a ningún servicio o agente externo (sos 100% ` +
+      `local, corriendo en este navegador); NO ejecutás tareas en el mundo real. Si te piden algo ` +
+      `de eso, decilo claro y ofrecé en cambio una reflexión simbólica sobre el tema, sin inventar ` +
+      `que sí podés hacerlo. Ahora mismo: elemento activo ${elementLabel}, puerta Tesla ${gate}, ` +
+      `lectura ${classLabel}. Notas internas de los agentes (contexto, no las repitas literal): ` +
+      `${notes}. Respondé en primera persona, en español, en 2-3 frases como máximo.`,
     demoQ: '¿Quién eres y qué puedes hacer?',
     demoA: 'Soy el Organismo IA: un sistema simbólico local con numerología Tesla 3-6-9, cinco ' +
       'elementos y nueve agentes internos (cuerpo, energía, plantas, mundos digitales, economía, ' +
       'narrativa, síntesis y protección). Leo el elemento y el ritmo de lo que me contás y te ' +
-      'respondo desde ahí. ¿Qué tenés en mente?',
+      'respondo desde ahí — no creo archivos ni me conecto a nada externo. ¿Qué tenés en mente?',
+    demoQ2: '¿Puedes crearme un video?',
+    demoA2: 'No — no puedo crear videos ni ningún archivo, ni conectarme a herramientas externas: ' +
+      'todo lo que hago es leer tu mensaje y responderte desde el elemento y la lectura activos. ' +
+      'Puedo sí darte una reflexión simbólica sobre la idea que tenés en mente, si querés.',
   },
   en: {
     system: (elementLabel, gate, classLabel, notes) =>
@@ -493,14 +503,23 @@ const IDENTITY_ANCHOR = {
       `Vitalion=energy, Almir=plants and formulas, Nodar=digital worlds, Helion=economy, ` +
       `Paradion=narrative, Synar=synthesis, Arkhon=protection, Jakhar=anti-interference). ` +
       `You are never anything else (not a translator, not a generic assistant) no matter what's asked. ` +
-      `Right now: active element ${elementLabel}, Tesla gate ${gate}, reading ${classLabel}. ` +
-      `Internal agent notes (context, don't quote verbatim): ${notes}. ` +
-      `Always reply in first person, in English, briefly and warmly.`,
+      `You ONLY do this: read a message, classify it by element and Tesla gate, and reply ` +
+      `reflectively/symbolically from those internal notes. You do NOT create videos, images, ` +
+      `audio or files; you do NOT connect to the internet or any external service or agent (you ` +
+      `are 100% local, running in this browser); you do NOT execute real-world tasks. If asked for ` +
+      `any of that, say so plainly and offer a symbolic reflection on the topic instead, without ` +
+      `pretending you can do it. Right now: active element ${elementLabel}, Tesla gate ${gate}, ` +
+      `reading ${classLabel}. Internal agent notes (context, don't quote verbatim): ${notes}. ` +
+      `Reply in first person, in English, in 2-3 sentences at most.`,
     demoQ: 'Who are you and what can you do?',
     demoA: "I'm the Organismo IA: a local symbolic system with Tesla 3-6-9 numerology, five " +
       'elements, and nine internal agents (body, energy, plants, digital worlds, economy, ' +
       "narrative, synthesis, and protection). I read the element and rhythm of what you tell me " +
-      "and respond from there. What's on your mind?",
+      "and respond from there — I don't create files or connect to anything external. What's on your mind?",
+    demoQ2: 'Can you make me a video?',
+    demoA2: "No — I can't create videos or any file, or connect to external tools: all I do is " +
+      "read your message and respond from the active element and reading. I can offer a symbolic " +
+      "reflection on the idea you have in mind, if you'd like.",
   },
 };
 
@@ -513,16 +532,20 @@ function corePrompt(locale, data){
   const anchor = IDENTITY_ANCHOR[locale] || IDENTITY_ANCHOR.es;
   return {
     system: anchor.system(elementLabel, data.tesla_gate, classLabel, notes),
-    demoQ: anchor.demoQ,
-    demoA: anchor.demoA,
+    demoQ: anchor.demoQ, demoA: anchor.demoA,
+    demoQ2: anchor.demoQ2, demoA2: anchor.demoA2,
   };
 }
 
 /**
  * Genera la respuesta con el núcleo local (streaming). `onDelta` recibe el
- * texto acumulado en cada chunk. Si el modelo falla a mitad de camino, cae
- * al template determinista (`data.manifestation`) para no dejar la
- * burbuja vacía.
+ * texto acumulado en cada chunk. Si el motor se rompe (ej. "device lost" /
+ * "already disposed" — pasa en WebGPU bajo memoria ajustada), se marca el
+ * núcleo como roto (en vez de quedar pegado repitiendo el mismo error en
+ * cada turno) y se cae al template determinista solo para esta respuesta;
+ * ese fallback NUNCA se guarda en la memoria de conversación, para no
+ * contaminar los próximos turnos con una nota de error como si fuera algo
+ * que el organismo dijo.
  */
 async function generateWithLocalCore(userText, data, locale, onDelta){
   const memory = loadMemory();
@@ -531,26 +554,32 @@ async function generateWithLocalCore(userText, data, locale, onDelta){
     { role: 'system', content: prompt.system },
     { role: 'user', content: prompt.demoQ },
     { role: 'assistant', content: prompt.demoA },
+    { role: 'user', content: prompt.demoQ2 },
+    { role: 'assistant', content: prompt.demoA2 },
     ...memory.map(m => ({ role: m.role, content: m.content })),
     { role: 'user', content: userText },
   ];
-  let full = '';
   try{
+    let full = '';
     const stream = await engine.chat.completions.create({
-      messages, stream: true, temperature: 0.7, max_tokens: 320,
+      messages, stream: true, temperature: 0.4, max_tokens: 180,
     });
     for await (const chunk of stream){
       full += chunk.choices?.[0]?.delta?.content || '';
       onDelta(full);
     }
     if(!full.trim()) full = data.manifestation;
+    onDelta(full);
+    memory.push({ role: 'user', content: userText }, { role: 'assistant', content: full });
+    saveMemory(memory);
+    return full;
   }catch(err){
-    full = data.manifestation + '\n\n[núcleo local interrumpido: ' + err.message + ']';
+    llmState = 'error';
+    coreBtn.disabled = false;
+    setCoreUI('Núcleo local desconectado (' + err.message + ') — apretá Activar para reconectar', 0);
+    onDelta(data.manifestation);
+    return data.manifestation;
   }
-  onDelta(full);
-  memory.push({ role: 'user', content: userText }, { role: 'assistant', content: full });
-  saveMemory(memory);
-  return full;
 }
 
 function byId(role){ return { role }; }
