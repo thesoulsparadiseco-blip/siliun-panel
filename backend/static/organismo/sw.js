@@ -1,5 +1,8 @@
-const CACHE = 'organismo-ia-shell-v1';
-const SHELL = ['/organismo-app/', '/organismo-app/index.html', '/organismo-app/manifest.json', '/organismo-app/icon.svg'];
+const CACHE = 'organismo-ia-shell-v2';
+const SHELL = [
+  '/organismo-app/', '/organismo-app/index.html', '/organismo-app/manifest.json',
+  '/organismo-app/icon.svg', '/organismo-app/icon-180.png', '/organismo-app/icon-192.png', '/organismo-app/icon-512.png',
+];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)));

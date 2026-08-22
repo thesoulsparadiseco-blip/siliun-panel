@@ -9,6 +9,8 @@
   "theme_color": "#0e0d0c",
   "lang": "es",
   "icons": [
-    { "src": "/organismo-app/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+    { "src": "/organismo-app/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/organismo-app/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/organismo-app/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
   ]
 }
