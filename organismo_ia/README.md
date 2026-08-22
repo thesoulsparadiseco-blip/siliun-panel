@@ -6,13 +6,13 @@ correr en un backend de servidor (este repo es un panel + agente cloud,
 no una app móvil nativa). Montado en el backend existente en
 `/organismo/*` (ver `backend/organismo_router.py`).
 
-## Qué corre completo acá vs. qué queda como interfaz
+## Qué corre completo aquí vs. qué queda como interfaz
 
 El spec pide un organismo que vive **en el móvil** (Flutter/React
 Native + Kotlin/Swift, LLM comprimido on-device, STT/TTS, cámara,
 sensores). Este repo es un backend Python en la nube — así que:
 
-| Capa del spec | Implementado acá | Estado |
+| Capa del spec | Implementado aquí | Estado |
 |---|---|---|
 | 5. IA local (Tesla, elemental, atractor/detractor, síntesis) | `core/` | ✅ funcional |
 | 7. Agentes internos (Solkin…Jakhar) | `agents/` | ✅ funcional |
@@ -46,6 +46,27 @@ sensores). Este repo es un backend Python en la nube — así que:
 7. **Memoria**: la interacción se guarda en `memory/vector_db.py`
    (embeddings locales por hashing) y `memory/graph_db.py` (nodos
    sesión/agente), y se actualiza `memory/internal.py` (`identity.json`).
+
+## Idiomas (`organismo_ia/i18n/`)
+
+Todo el contenido del organismo —palabras clave de clasificación, voces
+de los 9 agentes, mensajes de seguridad, textos de UI y el prompt de
+síntesis para el LLM— vive en `i18n/<código>.py` como un único dict
+`DATA`, no repartido a mano por los engines. Hoy hay dos locales:
+
+- **`es`** (por defecto): español de España.
+- **`en`**: inglés.
+
+`i18n.detect_locale(text)` decide el idioma por solapamiento de
+stopwords cuando `run()` no recibe un `locale` explícito — heurística
+liviana a propósito, sin dependencias nuevas (nada de `langdetect`).
+
+**Añadir un idioma nuevo** no toca `core/`, `agents/` ni `ui/`: se crea
+`i18n/<código>.py` con las mismas claves que `es.py`/`en.py`
+(`elements`, `attractor_keywords`, `agents`, `ui`, `llm_prompt`, …), se
+importa en `i18n/__init__.py` y se suma a `LOCALES` (y, si se quiere
+autodetección, a `_STOPWORDS`). Todo el resto lee el contenido a través
+de `i18n.get(locale)`.
 
 ## Nota de honestidad
 

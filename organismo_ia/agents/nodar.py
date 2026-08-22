@@ -6,8 +6,7 @@ class Nodar(Agent):
     name = "Nodar"
     signature = "[Nodar·Metaverso]"
     mission = "mundos, estética, arquitectura digital"
-    element = "Aire"
+    element = "air"
 
     def agent_actions(self, text: str, ctx: AgentContext) -> str:
-        return ("Traducible a arquitectura digital: este contenido podría materializarse como "
-                "un nodo/escena dentro del ecosistema (Metaverso Nodal) coherente con el elemento activo.")
+        return self.texts(ctx)["default"]

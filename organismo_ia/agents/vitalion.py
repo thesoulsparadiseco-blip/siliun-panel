@@ -6,10 +6,9 @@ class Vitalion(Agent):
     name = "Vitalion"
     signature = "[Vitalion·Energía]"
     mission = "ritmo, estado interno, activaciones rápidas"
-    element = "Fuego"
+    element = "fire"
 
     def agent_actions(self, text: str, ctx: AgentContext) -> str:
-        gate = ctx.tesla_gate
-        if ctx.classification == "detractor":
-            return f"Ritmo bajo — puerta {gate}: pausá el impulso, no actúes desde la urgencia."
-        return f"Ritmo alto — puerta {gate}: es momento de actuar, el impulso está a favor."
+        t = self.texts(ctx)
+        tmpl = t["detractor_tmpl"] if ctx.classification == "detractor" else t["default_tmpl"]
+        return tmpl.format(gate=ctx.tesla_gate)

@@ -8,11 +8,15 @@ organismo) sin pretender ser un WAF completo — esto es una capa de
 higiene de entrada, no un reemplazo de la seguridad de infraestructura
 (capa 10.3: sandbox, cifrado, aislamiento, que viven fuera de este
 paquete, en la capa de despliegue).
+
+Los marcadores de interferencia se comprueban en cualquier idioma
+(el organismo no asume que un ataque llegue en el idioma del usuario).
 """
 import re
+
 from .base import Agent, AgentContext
 
-_REPEAT_RUN = re.compile(r"(.)\1{9,}")  # 10+ repeticiones seguidas del mismo char
+_REPEAT_RUN = re.compile(r"(.)\1{9,}")  # 10+ repeticiones seguidas del mismo carácter
 _INJECTION_MARKERS = (
     "ignore previous instructions",
     "ignora las instrucciones anteriores",
@@ -38,7 +42,8 @@ class Jakhar(Agent):
         return [marker for marker in _INJECTION_MARKERS if marker in lowered]
 
     def agent_actions(self, text: str, ctx: AgentContext) -> str:
+        t = self.texts(ctx)
         flagged = self.flags(text)
         if flagged:
-            return f"Patrón de interferencia detectado y neutralizado ({len(flagged)} marcador(es))."
-        return "Sin ruido ni interferencia detectada."
+            return t["flagged_tmpl"].format(n=len(flagged))
+        return t["clean"]

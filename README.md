@@ -195,20 +195,29 @@ Ejecutable*: un motor simbólico (Tesla 3-6-9, elementos, atractor/
 detractor) que coordina 9 agentes internos (Solkin, Vitalion, Almir,
 Nodar, Helion, Paradion, Synar, Arkhon, Jakhar) sobre una capa de
 memoria propia (JSON + sqlite, sin dependencias nuevas). Vive en
-`organismo_ia/` — el detalle completo (qué corre acá vs. qué requiere
+`organismo_ia/` — el detalle completo (qué corre aquí vs. qué requiere
 el cliente móvil del spec original) está en `organismo_ia/README.md`.
 
-Usa la misma auth que `/agent` (`AGENT_TOKEN`):
+Usa la misma auth que `/agent` (`AGENT_TOKEN`). El idioma se autodetecta
+si no se indica (español de España por defecto, inglés si el texto lo
+sugiere) — ver `organismo_ia/i18n/`:
 
 ```bash
 curl -X POST http://localhost:8000/organismo/invoke \
   -H "Authorization: Bearer $AGENT_TOKEN" -H "Content-Type: application/json" \
   -d '{"input": "Quiero sanar mi cuerpo y encontrar estabilidad", "user_id": "u_12345"}'
+
+# o forzando idioma:
+curl -X POST http://localhost:8000/organismo/invoke \
+  -H "Authorization: Bearer $AGENT_TOKEN" -H "Content-Type: application/json" \
+  -d '{"input": "I want to heal my body", "user_id": "u_12345", "locale": "en"}'
 ```
 
 Si hay `ANTHROPIC_API_KEY` configurada, la manifestación final la
-sintetiza Claude a partir de las voces de los agentes; si no, cae a un
-template determinista (mismo patrón de fallback que `/agent`).
+sintetiza Claude a partir de las voces de los agentes (en el idioma
+detectado); si no, cae a un template determinista (mismo patrón de
+fallback que `/agent`). Añadir un idioma nuevo no requiere tocar el
+motor — ver la sección "Idiomas" de `organismo_ia/README.md`.
 
 ## 8. Checklist de arranque
 

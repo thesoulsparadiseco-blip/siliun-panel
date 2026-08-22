@@ -6,7 +6,7 @@ class Paradion(Agent):
     name = "Paradion"
     signature = "[Paradion·Expansión]"
     mission = "viralidad, narrativa, experiencias"
-    element = "Éter"
+    element = "ether"
 
     def agent_actions(self, text: str, ctx: AgentContext) -> str:
-        return "Este contenido tiene potencial narrativo: podría convertirse en experiencia o pieza compartible."
+        return self.texts(ctx)["default"]

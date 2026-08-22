@@ -3,7 +3,7 @@ memory/graph_db — capa 6.1 del spec: "Grafo de conocimiento: neo4j
 local / sqlite graph". Sin neo4j disponible en este entorno, se
 implementa el grafo sobre sqlite (nodes + edges), suficiente para
 recorridos de vecinos; el punto de extensión (swap a neo4j real) queda
-documentado acá para cuando el despliegue lo soporte.
+documentado aquí para cuando el despliegue lo soporte.
 """
 import os
 import sqlite3

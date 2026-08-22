@@ -8,6 +8,7 @@ La orquestación real vive en core/synthesis_engine.py; esta clase es la
 "voz" de Synar dentro de esa orquestación (el fragmento de cierre que
 integra lo que dijeron los demás agentes).
 """
+from ..i18n import get as get_locale
 from .base import Agent, AgentContext
 
 
@@ -21,5 +22,9 @@ class Synar(Agent):
         return True  # Synar siempre interviene: coordina, no compite por elemento.
 
     def agent_actions(self, text: str, ctx: AgentContext) -> str:
-        return (f"Elemento activo: {ctx.element} · Puerta Tesla: {ctx.tesla_gate} · "
-                f"Lectura: {ctx.classification}. Integrando las voces anteriores en una sola dirección.")
+        data = get_locale(ctx.locale)
+        element_label = data["element_names"].get(ctx.element, ctx.element)
+        classification_label = data["classification_names"].get(ctx.classification, ctx.classification)
+        return self.texts(ctx)["tmpl"].format(
+            element=element_label, gate=ctx.tesla_gate, classification=classification_label,
+        )

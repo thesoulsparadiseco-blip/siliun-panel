@@ -7,6 +7,7 @@ flujo como filtro de integridad. `integrity_check` rechaza entradas
 vacías/degeneradas y recorta longitudes absurdas (protección básica de
 recursos, capa 10.3 del spec).
 """
+from ..i18n import DEFAULT_LOCALE, get as get_locale
 from .base import Agent, AgentContext
 
 MAX_INPUT_CHARS = 8000
@@ -25,14 +26,14 @@ class Arkhon(Agent):
     def agent_rules(self, ctx: AgentContext) -> bool:
         return True
 
-    def integrity_check(self, text: str) -> str:
+    def integrity_check(self, text: str, locale: str = DEFAULT_LOCALE) -> str:
         """flow_guard + integrity_checker: valida y normaliza la entrada."""
         cleaned = text.strip()
         if not cleaned:
-            raise IntegrityViolation("Entrada vacía: el organismo no puede procesar silencio absoluto como texto.")
+            raise IntegrityViolation(get_locale(locale)["agents"]["Arkhon"]["empty_error"])
         if len(cleaned) > MAX_INPUT_CHARS:
             cleaned = cleaned[:MAX_INPUT_CHARS]
         return cleaned
 
     def agent_actions(self, text: str, ctx: AgentContext) -> str:
-        return "Integridad verificada. Flujo protegido."
+        return self.texts(ctx)["ok"]

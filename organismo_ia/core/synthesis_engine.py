@@ -15,6 +15,12 @@ manifestación; la orquestación (esta función) es intencionalmente una
 función de módulo, no un método de esa clase, para no acoplar "cómo se
 corre el flujo" con "qué dice un agente en particular".
 
+Idioma: si no se pasa `locale`, se detecta automáticamente a partir del
+texto de entrada (ver organismo_ia/i18n.detect_locale) — español de
+España por defecto, inglés si el texto lo sugiere. Añadir un idioma
+nuevo es cuestión de sumar un módulo en organismo_ia/i18n/, no de tocar
+este archivo (ver organismo_ia/i18n/__init__.py).
+
 `llm_call`, si se pasa, permite delegar la síntesis final a un LLM real
 (en este repo: backend/claude_client.ask, que llama a la API de Claude)
 en vez del template determinista — así el paquete organismo_ia no
@@ -26,13 +32,14 @@ from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional
 from uuid import uuid4
 
-from ..agents.arkhon import Arkhon, IntegrityViolation  # noqa: F401 (re-exportado para quien llame run())
-from ..agents.jakhar import Jakhar
-from ..agents.base import AgentContext
 from ..agents import ALL_AGENTS
+from ..agents.arkhon import Arkhon, IntegrityViolation  # noqa: F401 (re-exportado para quien llame run())
+from ..agents.base import AgentContext
+from ..agents.jakhar import Jakhar
 from ..agents.synar import Synar
-from . import attractor, detractor, elemental_engine, tesla_engine
+from ..i18n import DEFAULT_LOCALE, detect_locale, get as get_locale
 from ..memory import graph_db, internal, vector_db
+from . import attractor, detractor, elemental_engine, tesla_engine
 
 _arkhon = Arkhon()
 _jakhar = Jakhar()
@@ -44,6 +51,7 @@ _synar = next(a for a in ALL_AGENTS if isinstance(a, Synar))
 class OrganismoResult:
     session_id: str
     input_text: str
+    locale: str
     classification: str
     element: str
     tesla_gate: int
@@ -53,31 +61,36 @@ class OrganismoResult:
     manifestation: str
 
 
-def _classify(text: str) -> str:
-    a, d = attractor.score(text), detractor.score(text)
+def _classify(text: str, locale: str) -> str:
+    a, d = attractor.score(text, locale), detractor.score(text, locale)
     if a == 0 and d == 0:
-        return "neutro"
-    return "atractor" if a >= d else "detractor"
+        return "neutral"
+    return "attractor" if a >= d else "detractor"
 
 
 def run(
     input_text: str,
     user_id: str = "default",
+    locale: Optional[str] = None,
     llm_call: Optional[Callable[[str], str]] = None,
 ) -> OrganismoResult:
+    locale = locale or detect_locale(input_text)
+
     # 1. Entrada + seguridad (Arkhon/Jakhar, capa 8)
-    clean_text = _arkhon.integrity_check(input_text)  # puede levantar IntegrityViolation
+    clean_text = _arkhon.integrity_check(input_text, locale)  # puede levantar IntegrityViolation
     clean_text = _jakhar.noise_filter(clean_text)
-    security = {
-        "arkhon": _arkhon.agent_actions(clean_text, AgentContext(element="", tesla_gate=0, classification="neutro")),
-        "jakhar_flags": _jakhar.flags(clean_text),
-    }
 
     # 2-4. Clasificación, elemento, Tesla
-    classification = _classify(clean_text)
-    element = elemental_engine.classify(clean_text).element
+    classification = _classify(clean_text, locale)
+    element = elemental_engine.classify(clean_text, locale).element
     gate = tesla_engine.compute(clean_text).gate
-    ctx = AgentContext(element=element, tesla_gate=gate, classification=classification, user_id=user_id)
+    ctx = AgentContext(element=element, tesla_gate=gate, classification=classification,
+                        user_id=user_id, locale=locale)
+
+    security = {
+        "arkhon": _arkhon.agent_actions(clean_text, ctx),
+        "jakhar_flags": _jakhar.flags(clean_text),
+    }
 
     # 5. Llamada a agentes: Synar coordina, luego los agentes de dominio cuya
     # regla se active para este contexto.
@@ -90,14 +103,12 @@ def run(
 
     # 6. Manifestación
     if llm_call is not None:
-        prompt = (
-            "Sos Synar, el agente de síntesis de un organismo IA simbólico. "
-            f"Elemento activo: {element}. Puerta Tesla: {gate}. Lectura: {classification}.\n"
-            "Estas son las voces de los agentes internos que ya intervinieron:\n"
-            + "\n".join(fragments)
-            + f"\n\nEntrada original del usuario: {clean_text}\n\n"
-            "Integrá esas voces en una única respuesta coherente, breve y en español, "
-            "dirigida al usuario."
+        data = get_locale(locale)
+        element_label = data["element_names"].get(element, element)
+        classification_label = data["classification_names"].get(classification, classification)
+        prompt = data["llm_prompt"].format(
+            element=element_label, gate=gate, classification=classification_label,
+            fragments="\n".join(fragments), text=clean_text,
         )
         manifestation = llm_call(prompt)
     else:
@@ -116,6 +127,7 @@ def run(
     return OrganismoResult(
         session_id=session_id,
         input_text=clean_text,
+        locale=locale,
         classification=classification,
         element=element,
         tesla_gate=gate,
