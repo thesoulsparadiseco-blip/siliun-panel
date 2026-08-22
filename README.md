@@ -188,7 +188,7 @@ el otro abre tu agente.
   conocimiento local sobre 369/Tesla/Cábala (la misma del archivo
   original) — sigue siendo útil offline, solo que sin IA real.
 
-## 7. Organismo IA Local (`/organismo/*`, conectado a `/agent`)
+## 7. Organismo IA Local (`/organismo/*`, autosuficiente)
 
 Implementación del documento *Organismo IA Local · Arquitectura
 Ejecutable*: un motor simbólico (Tesla 3-6-9, elementos, atractor/
@@ -222,11 +222,14 @@ curl -X POST http://localhost:8000/organismo/invoke \
   -d '{"input": "I want to heal my body", "user_id": "u_12345", "locale": "en"}'
 ```
 
-Si hay `ANTHROPIC_API_KEY` configurada, la manifestación final la
-sintetiza Claude a partir de las voces de los agentes (en el idioma
-detectado); si no, cae a un template determinista (mismo patrón de
-fallback que `/agent`). Añadir un idioma nuevo no requiere tocar el
-motor — ver la sección "Idiomas" de `organismo_ia/README.md`.
+**Independiente a propósito:** a diferencia de `/agent` (que sí es un
+asistente conectado a Claude, por diseño), `/organismo/invoke` nunca
+llama a Claude ni a ninguna otra IA externa — la manifestación final
+siempre sale del template determinista que integra las voces de los
+agentes, aunque `ANTHROPIC_API_KEY` esté configurada para `/agent`.
+Autosuficiente es el comportamiento real, no un fallback (sección 1 del
+spec original). Añadir un idioma nuevo no requiere tocar el motor — ver
+la sección "Idiomas" de `organismo_ia/README.md`.
 
 ## 8. Checklist de arranque
 

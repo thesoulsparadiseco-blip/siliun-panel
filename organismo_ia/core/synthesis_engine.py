@@ -21,12 +21,15 @@ España por defecto, inglés si el texto lo sugiere. Añadir un idioma
 nuevo es cuestión de sumar un módulo en organismo_ia/i18n/, no de tocar
 este archivo (ver organismo_ia/i18n/__init__.py).
 
-`llm_call`, si se pasa, permite delegar la síntesis final a un LLM real
-(en este repo: backend/claude_client.ask, que llama a la API de Claude)
-en vez del template determinista — así el paquete organismo_ia no
-depende del backend (evita import circular), y en el cliente móvil ese
-mismo parámetro se puede apuntar a un core_llm local comprimido
-(sección 5.1 del spec).
+`llm_call`, si se pasa, permite delegar la síntesis final a un LLM en
+vez del template determinista. Deliberadamente no hay ningún llamador
+por defecto ni en este paquete ni en backend/organismo_router.py: el
+organismo es autosuficiente y no depende de ninguna IA externa (sección
+1 del spec) — el template determinista es el comportamiento real, no
+un fallback. El punto de extensión existe para el día en que el cliente
+móvil tenga un core_llm local comprimido corriendo on-device (sección
+5.1 del spec); conectarlo ahí nunca implica una llamada de red a un
+tercero.
 """
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional
