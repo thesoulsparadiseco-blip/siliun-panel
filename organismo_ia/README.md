@@ -21,6 +21,7 @@ sensores). Este repo es un backend Python en la nube — así que:
 | 4.2 module_text | `modules/text.py` | ✅ funcional |
 | 4.2 module_botanica (fórmulas) | `modules/botanica.py` | ✅ funcional (memoria, no hardware) |
 | 4.2 module_voice / module_vision / module_movement / module_energy | `modules/voice.py`, `vision.py`, `movement.py`, `energy.py` | ⏳ interfaz documentada — requieren micrófono/cámara/sensores, se implementan en el cliente móvil (sección 4.1) |
+| 4.2 banco de voces (catálogo SILIUN/KALEN/LUMARA/NODAL/ARKAI/SORA-ECHO) | `modules/voice_bank.py`, expuesto en `GET /organismo/voices` | ✅ funcional (selección de voz corre en servidor; la síntesis de audio en sí sigue device-bound) |
 | 1/4 UI (portal, ritual, lab, metaverso) | `ui/` | ✅ contratos JSON — el render real es del frontend (Flutter o el panel Streamlit existente) |
 | 5.1 core_llm | `core/synthesis_engine.py` (template determinista) | ✅ funcional y autosuficiente — nunca llama a Claude ni a ninguna otra IA externa, ni siquiera si `ANTHROPIC_API_KEY` está configurada para `/agent`; el hook `llm_call` queda para un LLM local on-device en el cliente móvil, no para un servicio de terceros |
 
