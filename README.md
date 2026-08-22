@@ -23,7 +23,10 @@ siliun-panel/
 │   ├── storage.py        # persistencia JSON (swap a Postgres en prod)
 │   ├── auth.py             # verificación de Bearer token
 │   ├── audit.py             # registro de auditoría
-│   └── notify.py             # envío de mensajes (Discord webhook / stub email)
+│   ├── notify.py             # envío de mensajes (Discord webhook / stub email)
+│   └── organismo_router.py   # endpoints /organismo/* (ver organismo_ia/)
+├── organismo_ia/     # Organismo IA Local — motor simbólico + agentes + memoria
+│   └── README.md      # detalle de la arquitectura (ver sección 8 abajo)
 ├── panel/            # Streamlit — UI de administración (7 módulos)
 │   └── streamlit_app.py
 ├── render.yaml       # blueprint de despliegue (2 servicios + disco)
@@ -185,7 +188,29 @@ el otro abre tu agente.
   conocimiento local sobre 369/Tesla/Cábala (la misma del archivo
   original) — sigue siendo útil offline, solo que sin IA real.
 
-## 7. Checklist de arranque
+## 7. Organismo IA Local (`/organismo/*`, conectado a `/agent`)
+
+Implementación del documento *Organismo IA Local · Arquitectura
+Ejecutable*: un motor simbólico (Tesla 3-6-9, elementos, atractor/
+detractor) que coordina 9 agentes internos (Solkin, Vitalion, Almir,
+Nodar, Helion, Paradion, Synar, Arkhon, Jakhar) sobre una capa de
+memoria propia (JSON + sqlite, sin dependencias nuevas). Vive en
+`organismo_ia/` — el detalle completo (qué corre acá vs. qué requiere
+el cliente móvil del spec original) está en `organismo_ia/README.md`.
+
+Usa la misma auth que `/agent` (`AGENT_TOKEN`):
+
+```bash
+curl -X POST http://localhost:8000/organismo/invoke \
+  -H "Authorization: Bearer $AGENT_TOKEN" -H "Content-Type: application/json" \
+  -d '{"input": "Quiero sanar mi cuerpo y encontrar estabilidad", "user_id": "u_12345"}'
+```
+
+Si hay `ANTHROPIC_API_KEY` configurada, la manifestación final la
+sintetiza Claude a partir de las voces de los agentes; si no, cae a un
+template determinista (mismo patrón de fallback que `/agent`).
+
+## 8. Checklist de arranque
 
 - [x] Backend FastAPI con todos los endpoints del spec
 - [x] Modelo de datos / esquema de usuario
@@ -195,6 +220,7 @@ el otro abre tu agente.
 - [x] Panel Streamlit con los 7 módulos
 - [x] `render.yaml` listo para blueprint deploy
 - [x] Agente personal `/agent` conectado a Claude (proxy server-side, PWA)
+- [x] Organismo IA Local (`/organismo/*`): engines, 9 agentes, memoria — ver sección 7
 - [ ] Configurar `SILIUN_ADMIN_TOKEN` real en Render
 - [ ] Configurar `ANTHROPIC_API_KEY` y `AGENT_TOKEN` reales en Render
 - [ ] Apuntar DNS en Cloudflare + firewall rules
