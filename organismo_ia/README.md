@@ -22,7 +22,7 @@ sensores). Este repo es un backend Python en la nube — así que:
 | 4.2 module_botanica (fórmulas) | `modules/botanica.py` | ✅ funcional (memoria, no hardware) |
 | 4.2 module_voice / module_vision / module_movement / module_energy | `modules/voice.py`, `vision.py`, `movement.py`, `energy.py` | ⏳ interfaz documentada — requieren micrófono/cámara/sensores, se implementan en el cliente móvil (sección 4.1) |
 | 1/4 UI (portal, ritual, lab, metaverso) | `ui/` | ✅ contratos JSON — el render real es del frontend (Flutter o el panel Streamlit existente) |
-| 5.1 core_llm | — | delegado: `backend/claude_client.ask` (Claude real) si hay `ANTHROPIC_API_KEY`, si no, template determinista de `synthesis_engine` |
+| 5.1 core_llm | `core/synthesis_engine.py` (template determinista) | ✅ funcional y autosuficiente — nunca llama a Claude ni a ninguna otra IA externa, ni siquiera si `ANTHROPIC_API_KEY` está configurada para `/agent`; el hook `llm_call` queda para un LLM local on-device en el cliente móvil, no para un servicio de terceros |
 
 ## Flujo (sección 9 del spec)
 
@@ -40,9 +40,11 @@ sensores). Este repo es un backend Python en la nube — así que:
 5. **Llamada a agentes**: Synar coordina siempre; los agentes de
    dominio (Solkin, Vitalion, Almir, Nodar, Helion, Paradion) se activan
    si su elemento coincide con el elemento activo.
-6. **Manifestación**: se unen las voces de los agentes; si se pasa
-   `llm_call` (en el backend, Claude), se le pide una síntesis final
-   coherente en vez del join literal.
+6. **Manifestación**: se unen las voces de los agentes con un template
+   determinista. `backend/organismo_router.py` nunca pasa `llm_call` —
+   el organismo es autosuficiente a propósito y no depende de Claude ni
+   de ninguna otra IA externa (sección 1 del spec), a diferencia de
+   `/agent`, que sí es un asistente conectado a Claude por diseño.
 7. **Memoria**: la interacción se guarda en `memory/vector_db.py`
    (embeddings locales por hashing) y `memory/graph_db.py` (nodos
    sesión/agente), y se actualiza `memory/internal.py` (`identity.json`).

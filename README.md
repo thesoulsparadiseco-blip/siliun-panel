@@ -188,7 +188,7 @@ el otro abre tu agente.
   conocimiento local sobre 369/Tesla/Cábala (la misma del archivo
   original) — sigue siendo útil offline, solo que sin IA real.
 
-## 7. Organismo IA Local (`/organismo/*`, conectado a `/agent`)
+## 7. Organismo IA Local (`/organismo/*`, autosuficiente)
 
 Implementación del documento *Organismo IA Local · Arquitectura
 Ejecutable*: un motor simbólico (Tesla 3-6-9, elementos, atractor/
@@ -222,11 +222,38 @@ curl -X POST http://localhost:8000/organismo/invoke \
   -d '{"input": "I want to heal my body", "user_id": "u_12345", "locale": "en"}'
 ```
 
-Si hay `ANTHROPIC_API_KEY` configurada, la manifestación final la
-sintetiza Claude a partir de las voces de los agentes (en el idioma
-detectado); si no, cae a un template determinista (mismo patrón de
-fallback que `/agent`). Añadir un idioma nuevo no requiere tocar el
-motor — ver la sección "Idiomas" de `organismo_ia/README.md`.
+**Independiente a propósito:** a diferencia de `/agent` (que sí es un
+asistente conectado a Claude, por diseño), `/organismo/invoke` nunca
+llama a Claude ni a ninguna otra IA externa — la manifestación final
+siempre sale del template determinista que integra las voces de los
+agentes, aunque `ANTHROPIC_API_KEY` esté configurada para `/agent`.
+Autosuficiente es el comportamiento real, no un fallback (sección 1 del
+spec original). Añadir un idioma nuevo no requiere tocar el motor — ver
+la sección "Idiomas" de `organismo_ia/README.md`.
+
+**Núcleo IA local (`core_llm` real, capa 5.1 del spec):** el backend
+clasifica (elemento/puerta/agentes) pero no genera texto libre — eso es
+determinista a propósito. Para que el organismo *responda* de verdad en
+vez de solo clasificar, sin depender de ningún servidor externo,
+`/organismo-app` puede activar un modelo de lenguaje pequeño que corre
+**en el propio navegador** vía WebGPU ([WebLLM](https://github.com/mlc-ai/web-llm),
+cargado desde CDN como módulo ES). Es opt-in (botón "Activar" en el
+encabezado, no arranca solo) porque implica bajar unos cientos de MB la
+primera vez; se cachea en el dispositivo, así que las visitas
+siguientes no vuelven a descargar. La clasificación del backend se le
+pasa como contexto al modelo para que la respuesta esté informada por
+el elemento/agentes activos, en vez de repetir un template fijo.
+Requiere un navegador con WebGPU (Chrome/Edge de escritorio y Android
+andan bien; Safari/iOS todavía tiene soporte limitado) — sin eso, o si
+falla la carga, el organismo sigue funcionando con el motor determinista
+de siempre, sin romperse.
+
+"Aprende" ahí significa memoria de la conversación guardada en
+`localStorage` del navegador (los últimos intercambios se le pasan de
+contexto al modelo en cada turno) — no reentrena los pesos del modelo,
+eso sería otro proyecto. Correr este mismo modelo en el servidor
+(Render) en vez del navegador no es viable en el plan free (512MB de
+RAM no alcanza ni para un modelo chico cuantizado).
 
 ## 8. Checklist de arranque
 
@@ -239,8 +266,9 @@ motor — ver la sección "Idiomas" de `organismo_ia/README.md`.
 - [x] `render.yaml` listo para blueprint deploy
 - [x] Agente personal `/agent` conectado a Claude (proxy server-side, PWA)
 - [x] Organismo IA Local (`/organismo/*`): engines, 9 agentes, memoria — ver sección 7
-- [ ] Configurar `SILIUN_ADMIN_TOKEN` real en Render
-- [ ] Configurar `ANTHROPIC_API_KEY` y `AGENT_TOKEN` reales en Render
+- [x] Núcleo IA local opt-in en `/organismo-app` (WebLLM, corre en el navegador) — ver sección 7
+- [x] Configurar `SILIUN_ADMIN_TOKEN` y `AGENT_TOKEN` reales en Render
+- [ ] Configurar `ANTHROPIC_API_KEY` en Render (solo para `/agent` — `/organismo` no la usa)
 - [ ] Apuntar DNS en Cloudflare + firewall rules
 - [ ] Conectar `DISCORD_WEBHOOK_URL` para notificaciones
 - [ ] Embeber el panel en la página Webflow `/siliun/panel`
