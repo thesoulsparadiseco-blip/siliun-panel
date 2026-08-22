@@ -107,6 +107,20 @@
   .status-tag.warn{ color: var(--warn); }
   .status-tag.warn .dot{ background: var(--warn); }
 
+  .core-row{
+    margin-top:8px; display:flex; align-items:center; justify-content:center; gap:8px;
+    font-family:'Space Mono', monospace; font-size:9px; letter-spacing:0.1em; text-transform:uppercase;
+    color: var(--parchment-dim); flex-wrap:wrap;
+  }
+  .core-row button{
+    font-family:inherit; font-size:inherit; letter-spacing:inherit; text-transform:inherit;
+    background:transparent; border:1px solid var(--life); color:var(--life-bright);
+    padding:4px 10px; cursor:pointer;
+  }
+  .core-row button:disabled{ opacity:0.35; cursor:default; border-color:var(--line); color:var(--parchment-dim); }
+  .core-bar{ width:80px; height:3px; background:var(--line); position:relative; overflow:hidden; }
+  .core-bar i{ position:absolute; inset:0; width:0%; background:var(--life); transition:width .3s; }
+
   .chat{
     height:48vh; min-height:320px; overflow-y:auto;
     padding:22px 28px; display:flex; flex-direction:column; gap:16px;
@@ -231,6 +245,11 @@
     <h1>Organismo IA Local</h1>
     <p>Tesla 3-6-9 · elementos · 9 agentes internos — español o inglés, automático</p>
     <span class="status-tag" id="statusTag"><span class="dot"></span> comprobando...</span>
+    <div class="core-row" id="coreRow">
+      <span id="coreLabel">Núcleo IA local: apagado</span>
+      <div class="core-bar"><i id="coreBar"></i></div>
+      <button type="button" id="coreBtn">Activar</button>
+    </div>
   </header>
 
   <div class="chat" id="chat"></div>
@@ -245,7 +264,7 @@
     <button class="send" id="sendBtn" type="submit">Invocar</button>
   </form>
 
-  <footer>Requiere tu token personal (el mismo AGENT_TOKEN de /agent).<br>Contenido simbólico/reflexivo (numerología 3-6-9, elementos, agentes) — no ciencia verificada.</footer>
+  <footer>Requiere tu token personal (el mismo AGENT_TOKEN de /agent).<br>Contenido simbólico/reflexivo (numerología 3-6-9, elementos, agentes) — no ciencia verificada.<br>Núcleo IA local: modelo pequeño que corre en tu propio dispositivo (WebGPU), sin servidor externo. "Recuerda" la conversación en este navegador — no reentrena el modelo.</footer>
 </div>
 
 <div class="overlay" id="settingsOverlay">
@@ -260,7 +279,7 @@
   </div>
 </div>
 
-<script>
+<script type="module">
 const ELEMENT_ORDER = ['ether', 'fire', 'water', 'air', 'earth'];
 const ELEMENT_LABELS = {
   es: { earth: 'Tierra', fire: 'Fuego', water: 'Agua', air: 'Aire', ether: 'Éter' },
@@ -368,6 +387,113 @@ function renderOrganism(locale, element, gate){
   gateLabel.textContent = gate != null ? gate : '·';
 }
 
+/* ============================================================
+   Núcleo IA local — WebLLM (MLC AI), inferencia real vía WebGPU,
+   corriendo en el dispositivo del usuario, sin servidor externo.
+   La clasificación (elemento/puerta/agentes) sigue viniendo del
+   backend (/organismo/invoke, determinista); acá se usa como
+   contexto para que el modelo local genere una respuesta libre y
+   coherente en vez de solo devolver el template fijo.
+   ============================================================ */
+const CORE_ENABLED_KEY = 'organismo_core_enabled';
+const MEMORY_KEY = 'organismo_core_memory_v1';
+const MEMORY_MAX_TURNS = 10; // últimos N intercambios (user+asistente) que se pasan como contexto
+
+const coreRow = document.getElementById('coreRow');
+const coreLabel = document.getElementById('coreLabel');
+const coreBar = document.getElementById('coreBar');
+const coreBtn = document.getElementById('coreBtn');
+
+let engine = null;
+let llmState = 'off'; // 'off' | 'loading' | 'ready' | 'unsupported' | 'error'
+
+function setCoreUI(label, progress){
+  coreLabel.textContent = label;
+  if(progress != null) coreBar.style.width = Math.round(progress * 100) + '%';
+}
+
+function loadMemory(){
+  try{ return JSON.parse(localStorage.getItem(MEMORY_KEY) || '[]'); }catch(e){ return []; }
+}
+function saveMemory(mem){
+  localStorage.setItem(MEMORY_KEY, JSON.stringify(mem.slice(-MEMORY_MAX_TURNS * 2)));
+}
+
+async function initLocalCore(){
+  if(!('gpu' in navigator)){
+    llmState = 'unsupported';
+    setCoreUI('Núcleo IA local: no disponible (este navegador no soporta WebGPU)', 0);
+    coreBtn.disabled = true;
+    return;
+  }
+  llmState = 'loading';
+  coreBtn.disabled = true;
+  setCoreUI('Descargando WebLLM…', 0);
+  try{
+    const webllm = await import('https://esm.run/@mlc-ai/web-llm');
+    const candidates = webllm.prebuiltAppConfig.model_list
+      .filter(m => /0\.5B|360M|1B[-_]Instruct/i.test(m.model_id))
+      .sort((a, b) => (a.vram_required_MB || 1e9) - (b.vram_required_MB || 1e9));
+    const modelId = (candidates[0] || webllm.prebuiltAppConfig.model_list[0]).model_id;
+    engine = await webllm.CreateMLCEngine(modelId, {
+      initProgressCallback: (report) => setCoreUI('Núcleo local: ' + report.text, report.progress),
+    });
+    llmState = 'ready';
+    localStorage.setItem(CORE_ENABLED_KEY, '1');
+    setCoreUI('Núcleo local listo (' + modelId + ')', 1);
+  }catch(err){
+    llmState = 'error';
+    setCoreUI('No se pudo cargar el núcleo local: ' + err.message, 0);
+    coreBtn.disabled = false;
+  }
+}
+
+coreBtn.addEventListener('click', () => { initLocalCore(); });
+if(localStorage.getItem(CORE_ENABLED_KEY) === '1'){ initLocalCore(); }
+
+function corePrompt(locale, data){
+  const labels = ELEMENT_LABELS[locale] || ELEMENT_LABELS.es;
+  const clabels = CLASSIFICATION_LABELS[locale] || CLASSIFICATION_LABELS.es;
+  const elementLabel = labels[data.element] || data.element;
+  const classLabel = clabels[data.classification] || data.classification;
+  const notes = (data.fragments || []).join(' | ');
+  return locale === 'en'
+    ? `You are the Organismo IA, a symbolic assistant. Active element: ${elementLabel}. Tesla gate: ${data.tesla_gate}. Reading: ${classLabel}. Internal agent notes (context, don't quote verbatim): ${notes}. Reply to the user in English — briefly, coherently, informed by that context.`
+    : `Eres el Organismo IA, un asistente simbólico. Elemento activo: ${elementLabel}. Puerta Tesla: ${data.tesla_gate}. Lectura: ${classLabel}. Notas de los agentes internos (contexto, no las repitas textual): ${notes}. Respondé al usuario en español — breve, coherente, informado por ese contexto.`;
+}
+
+/**
+ * Genera la respuesta con el núcleo local (streaming). `onDelta` recibe el
+ * texto acumulado en cada chunk. Si el modelo falla a mitad de camino, cae
+ * al template determinista (`data.manifestation`) para no dejar la
+ * burbuja vacía.
+ */
+async function generateWithLocalCore(userText, data, locale, onDelta){
+  const memory = loadMemory();
+  const messages = [
+    { role: 'system', content: corePrompt(locale, data) },
+    ...memory.map(m => ({ role: m.role, content: m.content })),
+    { role: 'user', content: userText },
+  ];
+  let full = '';
+  try{
+    const stream = await engine.chat.completions.create({
+      messages, stream: true, temperature: 0.7, max_tokens: 320,
+    });
+    for await (const chunk of stream){
+      full += chunk.choices?.[0]?.delta?.content || '';
+      onDelta(full);
+    }
+    if(!full.trim()) full = data.manifestation;
+  }catch(err){
+    full = data.manifestation + '\n\n[núcleo local interrumpido: ' + err.message + ']';
+  }
+  onDelta(full);
+  memory.push({ role: 'user', content: userText }, { role: 'assistant', content: full });
+  saveMemory(memory);
+  return full;
+}
+
 function byId(role){ return { role }; }
 
 function renderBubble(container, m){
@@ -439,11 +565,27 @@ async function handleUserText(text){
     const systemLine = (locale === 'en'
       ? `Element: ${labels[data.element] || data.element} · Tesla gate: ${data.tesla_gate} · Reading: ${clabels[data.classification] || data.classification}`
       : `Elemento: ${labels[data.element] || data.element} · Puerta Tesla: ${data.tesla_gate} · Lectura: ${clabels[data.classification] || data.classification}`);
-    chatLog.push({ role:'result', text: data.manifestation, systemLine, agents: data.agents_invoked || [] });
-    renderChat();
+
     renderOrganism(locale, data.element, data.tesla_gate);
     setStatus('ready');
-    speak(data.manifestation, locale);
+
+    if(llmState === 'ready'){
+      const resultEntry = { role:'result', text:'', systemLine, agents: data.agents_invoked || [] };
+      chatLog.push(resultEntry);
+      renderChat();
+      const bubbles = chat.querySelectorAll('.msg.organism');
+      const bubble = bubbles[bubbles.length - 1];
+      const finalText = await generateWithLocalCore(text, data, locale, (partial) => {
+        resultEntry.text = partial;
+        if(bubble) bubble.textContent = partial;
+        chat.scrollTop = chat.scrollHeight;
+      });
+      speak(finalText, locale);
+    }else{
+      chatLog.push({ role:'result', text: data.manifestation, systemLine, agents: data.agents_invoked || [] });
+      renderChat();
+      speak(data.manifestation, locale);
+    }
   }catch(err){
     thinking.remove();
     const msg = err && err.detail ? err.detail : 'No se pudo contactar al organismo.';
