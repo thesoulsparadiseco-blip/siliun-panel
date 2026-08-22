@@ -198,6 +198,15 @@ memoria propia (JSON + sqlite, sin dependencias nuevas). Vive en
 `organismo_ia/` — el detalle completo (qué corre aquí vs. qué requiere
 el cliente móvil del spec original) está en `organismo_ia/README.md`.
 
+**Interfaz web:** `https://<tu-backend>.onrender.com/organismo-app/` — una
+PWA (misma técnica que `/agent`: `manifest.json` + service worker,
+instalable en móvil y ordenador) donde se ve el organismo "vivo": un
+pentágono con los 5 elementos que se ilumina según el elemento activo,
+la puerta Tesla al centro, los agentes que intervinieron como chips, y
+dictado/lectura por voz. Pide el mismo token que `/agent` (se guarda una
+sola vez, se comparte entre ambas apps) y un selector AUTO/ES/EN para
+forzar el idioma si no querés que se autodetecte turno a turno.
+
 Usa la misma auth que `/agent` (`AGENT_TOKEN`). El idioma se autodetecta
 si no se indica (español de España por defecto, inglés si el texto lo
 sugiere) — ver `organismo_ia/i18n/`:

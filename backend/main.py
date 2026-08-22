@@ -227,3 +227,8 @@ app.include_router(organismo_router)
 _AGENT_STATIC_DIR = pathlib.Path(__file__).parent / "static" / "agent"
 if _AGENT_STATIC_DIR.exists():
     app.mount("/agent", StaticFiles(directory=str(_AGENT_STATIC_DIR), html=True), name="agent-frontend")
+
+# Distinto de /organismo (la API real, montada arriba) para no pisar sus rutas.
+_ORGANISMO_STATIC_DIR = pathlib.Path(__file__).parent / "static" / "organismo"
+if _ORGANISMO_STATIC_DIR.exists():
+    app.mount("/organismo-app", StaticFiles(directory=str(_ORGANISMO_STATIC_DIR), html=True), name="organismo-frontend")

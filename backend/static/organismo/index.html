@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Organismo IA Local</title>
+<meta name="theme-color" content="#0e0d0c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Organismo IA">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="icon" href="icon.svg">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
+
+  :root{
+    --copper: #b5804a;
+    --copper-bright: #d9a566;
+    --life: #7fae6c;
+    --life-bright: #9fd18b;
+    --ink: #0e0d0c;
+    --parchment: #ece5d8;
+    --parchment-dim: #a89c88;
+    --line: #3a352c;
+    --warn: #e0644a;
+  }
+
+  *{ box-sizing:border-box; }
+
+  body{
+    margin:0;
+    background: radial-gradient(circle at 50% 12%, #161a15 0%, var(--ink) 62%);
+    color: var(--parchment);
+    font-family:'Cormorant Garamond', serif;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+
+  .frame{
+    width:100%;
+    max-width:680px;
+    border:1px solid var(--line);
+    background: rgba(20,18,14,0.6);
+    position:relative;
+  }
+  .frame::before{
+    content:'';
+    position:absolute;
+    inset:8px;
+    border:1px solid rgba(127,174,108,0.22);
+    pointer-events:none;
+  }
+
+  header{ padding:32px 32px 16px; text-align:center; border-bottom:1px solid var(--line); position:relative; }
+
+  .gear{
+    position:absolute; top:18px; right:18px;
+    background:transparent; border:1px solid var(--line); color:var(--parchment-dim);
+    width:30px; height:30px; cursor:pointer; font-size:14px; line-height:1;
+  }
+  .gear:hover{ border-color:var(--life); color:var(--life-bright); }
+
+  .locale-picker{
+    position:absolute; top:18px; left:18px;
+    display:flex; gap:2px; font-family:'Space Mono', monospace; font-size:10px;
+  }
+  .locale-picker button{
+    background:transparent; border:1px solid var(--line); color:var(--parchment-dim);
+    padding:6px 8px; cursor:pointer; letter-spacing:0.05em;
+  }
+  .locale-picker button.on{ border-color:var(--life); color:var(--life-bright); }
+
+  .pentagon-wrap{ width:150px; height:150px; margin:0 auto 12px; position:relative; }
+  .pentagon-wrap svg{ width:100%; height:100%; }
+  .pentagon-wrap .frame-line{ fill:none; stroke:var(--line); stroke-width:1.5; }
+  .pentagon-wrap .node{ fill:var(--ink); stroke:var(--parchment-dim); stroke-width:1.5; transition:all .4s; }
+  .pentagon-wrap .node.active{ fill:var(--life); stroke:var(--life-bright); filter:drop-shadow(0 0 6px var(--life-bright)); }
+  .pentagon-wrap text.label{ font-family:'Space Mono', monospace; font-size:8px; fill:var(--parchment-dim); }
+  .pentagon-wrap text.label.active{ fill:var(--life-bright); }
+  .pentagon-wrap text.gate{ font-family:'Space Mono', monospace; font-size:20px; font-weight:700; fill:var(--copper-bright); text-anchor:middle; }
+
+  h1{
+    font-family:'Space Mono', monospace;
+    font-weight:700; font-size:13px; letter-spacing:0.3em; text-transform:uppercase;
+    margin:0 0 8px; color: var(--life-bright);
+  }
+  header p{ margin:0; font-size:15px; color: var(--parchment-dim); font-style:italic; line-height:1.5; }
+
+  .status-tag{
+    margin-top:10px;
+    display:inline-flex; align-items:center; gap:6px;
+    font-family:'Space Mono', monospace;
+    font-size:9px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color: var(--copper);
+    border:1px solid var(--line);
+    padding:4px 10px;
+  }
+  .status-tag .dot{ width:6px; height:6px; border-radius:50%; background:var(--parchment-dim); }
+  .status-tag.ready{ color: var(--life); }
+  .status-tag.ready .dot{ background: var(--life); }
+  .status-tag.warn{ color: var(--warn); }
+  .status-tag.warn .dot{ background: var(--warn); }
+
+  .chat{
+    height:48vh; min-height:320px; overflow-y:auto;
+    padding:22px 28px; display:flex; flex-direction:column; gap:16px;
+  }
+  .chat::-webkit-scrollbar{ width:6px; }
+  .chat::-webkit-scrollbar-thumb{ background:var(--line); }
+
+  .msg{ max-width:88%; line-height:1.55; font-size:18px; white-space:pre-wrap; }
+  .msg.user{
+    align-self:flex-end; color: var(--ink); background: var(--parchment);
+    padding:10px 16px; border-radius:2px 2px 2px 14px;
+  }
+  .msg.organism{ align-self:flex-start; color: var(--parchment); position:relative; padding-left:16px; }
+  .msg.organism::before{
+    content:''; position:absolute; left:0; top:6px; bottom:6px; width:2px;
+    background: linear-gradient(var(--life), transparent);
+  }
+  .msg.system{
+    align-self:center; font-family:'Space Mono', monospace; font-size:11px;
+    letter-spacing:0.1em; text-transform:uppercase; color: var(--parchment-dim); opacity:0.7;
+    text-align:center;
+  }
+  .msg.thinking{ opacity:0.5; font-style:italic; }
+  .msg.error{ align-self:center; color:var(--warn); font-family:'Space Mono', monospace; font-size:12px; }
+
+  .agent-chips{ display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-top:2px; }
+  .agent-chip{
+    font-family:'Space Mono', monospace; font-size:9px; letter-spacing:0.06em;
+    border:1px solid var(--life); color:var(--life-bright); padding:3px 8px; opacity:0.9;
+  }
+
+  form{ display:flex; align-items:stretch; border-top:1px solid var(--line); }
+  .mic-btn{
+    font-family:'Space Mono', monospace;
+    background:transparent; border:none; border-right:1px solid var(--line);
+    color:var(--parchment-dim); width:56px; cursor:pointer; font-size:18px;
+    transition:color .2s, background .2s;
+  }
+  .mic-btn:hover{ color:var(--life-bright); }
+  .mic-btn.recording{ color:#e0644a; background:rgba(224,100,74,0.08); animation:pulse 1.2s infinite; }
+  @keyframes pulse{ 0%,100%{ opacity:1; } 50%{ opacity:0.4; } }
+  .mic-unavailable{ opacity:0.3; cursor:not-allowed; }
+  textarea{
+    flex:1; resize:none; background:transparent; border:none; outline:none;
+    color:var(--parchment); font-family:'Cormorant Garamond', serif; font-size:17px;
+    padding:18px 20px; line-height:1.4;
+  }
+  textarea::placeholder{ color:var(--parchment-dim); opacity:0.6; }
+  button.send{
+    font-family:'Space Mono', monospace; font-size:11px; letter-spacing:0.15em; text-transform:uppercase;
+    background:transparent; border:none; border-left:1px solid var(--line); color:var(--life-bright);
+    padding:0 26px; cursor:pointer;
+  }
+  button.send:hover{ background:rgba(127,174,108,0.08); }
+
+  .voice-bar{
+    display:flex; align-items:center; justify-content:center; gap:10px;
+    padding:0 28px 14px;
+    font-family:'Space Mono', monospace;
+    font-size:10px; letter-spacing:0.1em; text-transform:uppercase;
+    color:var(--parchment-dim);
+  }
+  .voice-toggle{
+    display:flex; align-items:center; gap:6px;
+    background:transparent; border:1px solid var(--line); color:var(--parchment-dim);
+    padding:6px 10px; cursor:pointer; transition:border-color .2s, color .2s;
+  }
+  .voice-toggle.on{ border-color:var(--life); color:var(--life-bright); }
+  .voice-toggle .dot{ width:6px; height:6px; border-radius:50%; background:var(--parchment-dim); }
+  .voice-toggle.on .dot{ background:var(--life-bright); }
+
+  footer{
+    padding:14px 28px 22px; text-align:center; font-family:'Space Mono', monospace;
+    font-size:10px; letter-spacing:0.08em; color: var(--parchment-dim); opacity:0.55;
+  }
+
+  .overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.7);
+    display:none; align-items:center; justify-content:center; padding:24px; z-index:10;
+  }
+  .overlay.show{ display:flex; }
+  .modal{
+    width:100%; max-width:420px; background:var(--ink); border:1px solid var(--line);
+    padding:28px; font-family:'Cormorant Garamond', serif;
+  }
+  .modal h2{
+    font-family:'Space Mono', monospace; font-size:12px; letter-spacing:0.2em; text-transform:uppercase;
+    color:var(--life-bright); margin:0 0 14px;
+  }
+  .modal p{ font-size:15px; color:var(--parchment-dim); line-height:1.5; margin:0 0 16px; }
+  .modal input{
+    width:100%; background:transparent; border:1px solid var(--line); color:var(--parchment);
+    font-family:'Space Mono', monospace; font-size:13px; padding:10px 12px; margin-bottom:14px; outline:none;
+  }
+  .modal input:focus{ border-color:var(--life); }
+  .modal-actions{ display:flex; gap:10px; justify-content:flex-end; }
+  .modal-actions button{
+    font-family:'Space Mono', monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase;
+    background:transparent; border:1px solid var(--line); color:var(--parchment-dim);
+    padding:9px 16px; cursor:pointer;
+  }
+  .modal-actions button.primary{ border-color:var(--life); color:var(--life-bright); }
+  .modal-actions button:hover{ border-color:var(--life-bright); }
+</style>
+</head>
+<body>
+
+<div class="frame">
+  <header>
+    <div class="locale-picker" id="localePicker">
+      <button type="button" data-locale="auto" class="on">AUTO</button>
+      <button type="button" data-locale="es">ES</button>
+      <button type="button" data-locale="en">EN</button>
+    </div>
+    <button type="button" class="gear" id="gearBtn" title="Configurar">⚙</button>
+    <div class="pentagon-wrap">
+      <svg viewBox="0 0 150 150" id="pentagonSvg">
+        <polygon class="frame-line" points="" id="pentagonOutline"/>
+        <text class="gate" x="75" y="80" id="gateLabel">·</text>
+      </svg>
+    </div>
+    <h1>Organismo IA Local</h1>
+    <p>Tesla 3-6-9 · elementos · 9 agentes internos — español o inglés, automático</p>
+    <span class="status-tag" id="statusTag"><span class="dot"></span> comprobando...</span>
+  </header>
+
+  <div class="chat" id="chat"></div>
+
+  <div class="voice-bar">
+    <button type="button" class="voice-toggle" id="voiceToggle"><span class="dot"></span> Leer respuestas en voz alta</button>
+  </div>
+
+  <form id="form">
+    <button type="button" class="mic-btn" id="micBtn" title="Hablar">🎤</button>
+    <textarea id="input" rows="1" placeholder="Escribe o habla lo que sientas..."></textarea>
+    <button class="send" id="sendBtn" type="submit">Invocar</button>
+  </form>
+
+  <footer>Requiere tu token personal (el mismo AGENT_TOKEN de /agent).<br>Contenido simbólico/reflexivo (numerología 3-6-9, elementos, agentes) — no ciencia verificada.</footer>
+</div>
+
+<div class="overlay" id="settingsOverlay">
+  <div class="modal">
+    <h2>Configura el organismo</h2>
+    <p>Pega aquí tu token personal (el valor de <b>AGENT_TOKEN</b> configurado en el servidor — el mismo que usa <code>/agent</code>). Se guarda solo en este dispositivo.</p>
+    <input type="password" id="tokenInput" placeholder="Token personal" autocomplete="off">
+    <div class="modal-actions">
+      <button type="button" id="clearTokenBtn">Borrar</button>
+      <button type="button" id="saveTokenBtn" class="primary">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const ELEMENT_ORDER = ['ether', 'fire', 'water', 'air', 'earth'];
+const ELEMENT_LABELS = {
+  es: { earth: 'Tierra', fire: 'Fuego', water: 'Agua', air: 'Aire', ether: 'Éter' },
+  en: { earth: 'Earth', fire: 'Fire', water: 'Water', air: 'Air', ether: 'Ether' },
+};
+const CLASSIFICATION_LABELS = {
+  es: { attractor: 'atractor', detractor: 'detractor', neutral: 'neutro' },
+  en: { attractor: 'attractor', detractor: 'detractor', neutral: 'neutral' },
+};
+const RECOGNITION_LANG = { auto: 'es-ES', es: 'es-ES', en: 'en-US' };
+const SPEECH_LANG = { es: 'es-ES', en: 'en-US' };
+
+const TOKEN_KEY = 'siliun_agent_token'; // mismo token que /agent (AGENT_TOKEN)
+const LOCALE_KEY = 'siliun_organismo_locale';
+
+const chat = document.getElementById('chat');
+const form = document.getElementById('form');
+const input = document.getElementById('input');
+const statusTag = document.getElementById('statusTag');
+const gearBtn = document.getElementById('gearBtn');
+const settingsOverlay = document.getElementById('settingsOverlay');
+const tokenInput = document.getElementById('tokenInput');
+const saveTokenBtn = document.getElementById('saveTokenBtn');
+const clearTokenBtn = document.getElementById('clearTokenBtn');
+const localePicker = document.getElementById('localePicker');
+const pentagonSvg = document.getElementById('pentagonSvg');
+const pentagonOutline = document.getElementById('pentagonOutline');
+const gateLabel = document.getElementById('gateLabel');
+
+let uiLocale = localStorage.getItem(LOCALE_KEY) || 'auto';
+let chatLog = [];
+
+function getToken(){ return localStorage.getItem(TOKEN_KEY) || ''; }
+
+function setStatus(state){
+  // state: 'checking' | 'ready' | 'no-token' | 'warn'
+  statusTag.className = 'status-tag' + (state === 'ready' ? ' ready' : state === 'warn' ? ' warn' : '');
+  const text = { checking:'comprobando...', ready:'listo — token configurado', 'no-token':'configura tu token (⚙)', warn:'sin respuesta del servidor' }[state];
+  statusTag.innerHTML = '<span class="dot"></span> ' + text;
+}
+
+function openSettings(){
+  tokenInput.value = getToken();
+  settingsOverlay.classList.add('show');
+  tokenInput.focus();
+}
+function closeSettings(){ settingsOverlay.classList.remove('show'); }
+
+gearBtn.addEventListener('click', openSettings);
+saveTokenBtn.addEventListener('click', ()=>{
+  const v = tokenInput.value.trim();
+  if(v) localStorage.setItem(TOKEN_KEY, v); else localStorage.removeItem(TOKEN_KEY);
+  closeSettings();
+  setStatus(v ? 'ready' : 'no-token');
+});
+clearTokenBtn.addEventListener('click', ()=>{
+  localStorage.removeItem(TOKEN_KEY);
+  tokenInput.value = '';
+  closeSettings();
+  setStatus('no-token');
+});
+settingsOverlay.addEventListener('click', (e)=>{ if(e.target === settingsOverlay) closeSettings(); });
+
+localePicker.querySelectorAll('button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    uiLocale = btn.dataset.locale;
+    localStorage.setItem(LOCALE_KEY, uiLocale);
+    localePicker.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === btn));
+  });
+});
+(function initLocalePicker(){
+  localePicker.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.locale === uiLocale));
+})();
+
+/* ---- pentágono de elementos (Tierra/Fuego/Agua/Aire/Éter) ---- */
+const CENTER = 75, RADIUS = 58;
+function nodePosition(i){
+  const angle = (Math.PI * 2 * i) / ELEMENT_ORDER.length - Math.PI / 2;
+  return { x: CENTER + RADIUS * Math.cos(angle), y: CENTER + RADIUS * Math.sin(angle) };
+}
+ELEMENT_ORDER.forEach((el, i)=>{
+  const { x, y } = nodePosition(i);
+  const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  circle.setAttribute('class', 'node');
+  circle.setAttribute('id', 'node-' + el);
+  circle.setAttribute('cx', x); circle.setAttribute('cy', y); circle.setAttribute('r', 9);
+  pentagonSvg.appendChild(circle);
+  const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  label.setAttribute('class', 'label'); label.setAttribute('id', 'label-' + el);
+  label.setAttribute('x', x); label.setAttribute('y', y + (y > CENTER ? 18 : -12));
+  label.setAttribute('text-anchor', 'middle');
+  pentagonSvg.appendChild(label);
+});
+pentagonOutline.setAttribute('points', ELEMENT_ORDER.map((_, i)=>{ const p = nodePosition(i); return `${p.x},${p.y}`; }).join(' '));
+
+function renderOrganism(locale, element, gate){
+  const labels = ELEMENT_LABELS[locale] || ELEMENT_LABELS.es;
+  ELEMENT_ORDER.forEach(el=>{
+    const active = el === element;
+    document.getElementById('node-' + el).classList.toggle('active', active);
+    const label = document.getElementById('label-' + el);
+    label.textContent = labels[el];
+    label.classList.toggle('active', active);
+  });
+  gateLabel.textContent = gate != null ? gate : '·';
+}
+
+function byId(role){ return { role }; }
+
+function renderBubble(container, m){
+  const div = document.createElement('div');
+  div.className = 'msg ' + m.role;
+  div.textContent = m.text;
+  container.appendChild(div);
+  return div;
+}
+
+function renderChips(container, agents){
+  const wrap = document.createElement('div');
+  wrap.className = 'agent-chips';
+  agents.forEach(name=>{
+    const chip = document.createElement('span');
+    chip.className = 'agent-chip';
+    chip.textContent = name;
+    wrap.appendChild(chip);
+  });
+  container.appendChild(wrap);
+}
+
+function renderChat(){
+  chat.innerHTML = '';
+  if(chatLog.length === 0){
+    renderBubble(chat, { role:'organism', text:'El organismo está en reposo. Escribe algo (en español o inglés) para invocarlo — clasifica el elemento activo, la puerta Tesla y decide qué agentes internos responden.' });
+    return;
+  }
+  chatLog.forEach(entry=>{
+    if(entry.role === 'result'){
+      renderBubble(chat, { role:'system', text: entry.systemLine });
+      renderChips(chat, entry.agents);
+      renderBubble(chat, { role:'organism', text: entry.text });
+    }else{
+      renderBubble(chat, entry);
+    }
+  });
+  chat.scrollTop = chat.scrollHeight;
+}
+
+async function invoke(text){
+  const token = getToken();
+  const body = { input: text, user_id: 'web' };
+  if(uiLocale !== 'auto') body.locale = uiLocale;
+  const resp = await fetch('/organismo/invoke', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+    body: JSON.stringify(body),
+  });
+  const data = await resp.json().catch(()=>({}));
+  if(!resp.ok) throw { status: resp.status, detail: data.detail || ('HTTP ' + resp.status) };
+  return data;
+}
+
+async function handleUserText(text){
+  if(!getToken()){ openSettings(); return; }
+
+  chatLog.push({ role:'user', text });
+  renderChat();
+  const thinking = renderBubble(chat, { role:'thinking', text:'El organismo está procesando…' });
+  chat.scrollTop = chat.scrollHeight;
+
+  try{
+    const data = await invoke(text);
+    thinking.remove();
+    const locale = data.locale || 'es';
+    const labels = ELEMENT_LABELS[locale] || ELEMENT_LABELS.es;
+    const clabels = CLASSIFICATION_LABELS[locale] || CLASSIFICATION_LABELS.es;
+    const systemLine = (locale === 'en'
+      ? `Element: ${labels[data.element] || data.element} · Tesla gate: ${data.tesla_gate} · Reading: ${clabels[data.classification] || data.classification}`
+      : `Elemento: ${labels[data.element] || data.element} · Puerta Tesla: ${data.tesla_gate} · Lectura: ${clabels[data.classification] || data.classification}`);
+    chatLog.push({ role:'result', text: data.manifestation, systemLine, agents: data.agents_invoked || [] });
+    renderChat();
+    renderOrganism(locale, data.element, data.tesla_gate);
+    setStatus('ready');
+    speak(data.manifestation, locale);
+  }catch(err){
+    thinking.remove();
+    const msg = err && err.detail ? err.detail : 'No se pudo contactar al organismo.';
+    chatLog.push({ role:'error', text: msg });
+    renderChat();
+    if(err && (err.status === 401 || err.status === 403)){ setStatus('no-token'); openSettings(); }
+    else{ setStatus('warn'); }
+  }
+}
+
+renderChat();
+setStatus(getToken() ? 'ready' : 'no-token');
+if(!getToken()) openSettings();
+
+form.addEventListener('submit', (e)=>{
+  e.preventDefault();
+  const text = input.value.trim();
+  if(!text) return;
+  handleUserText(text);
+  input.value = '';
+});
+
+input.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter' && !e.shiftKey){
+    e.preventDefault();
+    form.dispatchEvent(new Event('submit'));
+  }
+});
+
+/* ---- voz: dictado y lectura, bajo demanda (sin escucha pasiva) ---- */
+const micBtn = document.getElementById('micBtn');
+const voiceToggle = document.getElementById('voiceToggle');
+let voiceOn = false;
+let recognizing = false;
+
+voiceToggle.addEventListener('click', ()=>{
+  voiceOn = !voiceOn;
+  voiceToggle.classList.toggle('on', voiceOn);
+  if(!voiceOn) speechSynthesis.cancel();
+});
+
+function speak(text, locale){
+  if(!voiceOn || !('speechSynthesis' in window)) return;
+  speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = SPEECH_LANG[locale] || SPEECH_LANG.es;
+  utter.rate = 0.98;
+  speechSynthesis.speak(utter);
+}
+
+const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognition = null;
+
+if(SpeechRecognitionAPI){
+  recognition = new SpeechRecognitionAPI();
+  recognition.continuous = false;
+  recognition.interimResults = false;
+
+  recognition.onstart = ()=>{ recognizing = true; micBtn.classList.add('recording'); micBtn.textContent = '●'; };
+  recognition.onend = ()=>{ recognizing = false; micBtn.classList.remove('recording'); micBtn.textContent = '🎤'; };
+  recognition.onerror = ()=>{ recognizing = false; micBtn.classList.remove('recording'); micBtn.textContent = '🎤'; };
+  recognition.onresult = (event)=>{
+    input.value = event.results[0][0].transcript;
+    form.dispatchEvent(new Event('submit'));
+  };
+
+  micBtn.addEventListener('click', ()=>{
+    if(recognizing){ recognition.stop(); return; }
+    recognition.lang = RECOGNITION_LANG[uiLocale] || RECOGNITION_LANG.auto;
+    try{ recognition.start(); }catch(e){ /* ya iniciado */ }
+  });
+}else{
+  micBtn.classList.add('mic-unavailable');
+  micBtn.title = 'Reconocimiento de voz no disponible en este navegador';
+  micBtn.addEventListener('click', ()=>{
+    chatLog.push({ role:'system', text: 'Tu navegador no soporta reconocimiento de voz. Prueba con Chrome o Edge.' });
+    renderChat();
+  });
+}
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+}
+</script>
+
+</body>
+</html>
