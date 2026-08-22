@@ -419,6 +419,22 @@ function saveMemory(mem){
   localStorage.setItem(MEMORY_KEY, JSON.stringify(mem.slice(-MEMORY_MAX_TURNS * 2)));
 }
 
+// Orden de preferencia: modelos más grandes (mejor coherencia y adherencia
+// de personaje) primero, cayendo a más chicos solo si no están disponibles.
+// Un modelo de ~360M sigue instrucciones de personaje muy débilmente — por
+// eso "1B" va antes que "0.5B"/"360M" acá, no ordenado por tamaño de descarga.
+const MODEL_PREFERENCE = [
+  /Llama-3\.2-1B-Instruct/i, /Qwen2\.5-1\.5B-Instruct/i, /1B[-_]Instruct/i,
+  /Qwen2\.5-0\.5B-Instruct/i, /0\.5B[-_]Instruct/i, /360M/i,
+];
+function pickModelId(modelList){
+  for(const pattern of MODEL_PREFERENCE){
+    const match = modelList.find(m => pattern.test(m.model_id));
+    if(match) return match.model_id;
+  }
+  return modelList[0].model_id;
+}
+
 async function initLocalCore(){
   if(!('gpu' in navigator)){
     llmState = 'unsupported';
@@ -431,10 +447,7 @@ async function initLocalCore(){
   setCoreUI('Descargando WebLLM…', 0);
   try{
     const webllm = await import('https://esm.run/@mlc-ai/web-llm');
-    const candidates = webllm.prebuiltAppConfig.model_list
-      .filter(m => /0\.5B|360M|1B[-_]Instruct/i.test(m.model_id))
-      .sort((a, b) => (a.vram_required_MB || 1e9) - (b.vram_required_MB || 1e9));
-    const modelId = (candidates[0] || webllm.prebuiltAppConfig.model_list[0]).model_id;
+    const modelId = pickModelId(webllm.prebuiltAppConfig.model_list);
     engine = await webllm.CreateMLCEngine(modelId, {
       initProgressCallback: (report) => setCoreUI('Núcleo local: ' + report.text, report.progress),
     });
@@ -451,15 +464,58 @@ async function initLocalCore(){
 coreBtn.addEventListener('click', () => { initLocalCore(); });
 if(localStorage.getItem(CORE_ENABLED_KEY) === '1'){ initLocalCore(); }
 
+// Identidad fija + demostración concreta (few-shot). Un modelo de este
+// tamaño (0.5B-1B) sigue una instrucción de personaje débilmente si solo
+// se la decimos — un ejemplo de intercambio real ancla mucho mejor "quién
+// sos" que la instrucción sola, que es justo lo que falló antes (SmolLM2
+// respondiendo "soy un traductor" pese a la instrucción en el system prompt).
+const IDENTITY_ANCHOR = {
+  es: {
+    system: (elementLabel, gate, classLabel, notes) =>
+      `Sos el Organismo IA, la voz de un sistema simbólico local: numerología Tesla 3-6-9, ` +
+      `cinco elementos (Tierra/Fuego/Agua/Aire/Éter) y nueve agentes internos (Solkin=cuerpo, ` +
+      `Vitalion=energía, Almir=plantas y fórmulas, Nodar=mundos digitales, Helion=economía, ` +
+      `Paradion=narrativa, Synar=síntesis, Arkhon=protección, Jakhar=anti-interferencia). ` +
+      `Nunca sos otra cosa (no un traductor, no un asistente genérico) aunque te lo pregunten. ` +
+      `Ahora mismo: elemento activo ${elementLabel}, puerta Tesla ${gate}, lectura ${classLabel}. ` +
+      `Notas internas de los agentes (contexto, no las repitas literal): ${notes}. ` +
+      `Respondé siempre en primera persona, en español, breve y cálido.`,
+    demoQ: '¿Quién eres y qué puedes hacer?',
+    demoA: 'Soy el Organismo IA: un sistema simbólico local con numerología Tesla 3-6-9, cinco ' +
+      'elementos y nueve agentes internos (cuerpo, energía, plantas, mundos digitales, economía, ' +
+      'narrativa, síntesis y protección). Leo el elemento y el ritmo de lo que me contás y te ' +
+      'respondo desde ahí. ¿Qué tenés en mente?',
+  },
+  en: {
+    system: (elementLabel, gate, classLabel, notes) =>
+      `You are the Organismo IA, the voice of a local symbolic system: Tesla 3-6-9 numerology, ` +
+      `five elements (Earth/Fire/Water/Air/Ether) and nine internal agents (Solkin=body, ` +
+      `Vitalion=energy, Almir=plants and formulas, Nodar=digital worlds, Helion=economy, ` +
+      `Paradion=narrative, Synar=synthesis, Arkhon=protection, Jakhar=anti-interference). ` +
+      `You are never anything else (not a translator, not a generic assistant) no matter what's asked. ` +
+      `Right now: active element ${elementLabel}, Tesla gate ${gate}, reading ${classLabel}. ` +
+      `Internal agent notes (context, don't quote verbatim): ${notes}. ` +
+      `Always reply in first person, in English, briefly and warmly.`,
+    demoQ: 'Who are you and what can you do?',
+    demoA: "I'm the Organismo IA: a local symbolic system with Tesla 3-6-9 numerology, five " +
+      'elements, and nine internal agents (body, energy, plants, digital worlds, economy, ' +
+      "narrative, synthesis, and protection). I read the element and rhythm of what you tell me " +
+      "and respond from there. What's on your mind?",
+  },
+};
+
 function corePrompt(locale, data){
   const labels = ELEMENT_LABELS[locale] || ELEMENT_LABELS.es;
   const clabels = CLASSIFICATION_LABELS[locale] || CLASSIFICATION_LABELS.es;
   const elementLabel = labels[data.element] || data.element;
   const classLabel = clabels[data.classification] || data.classification;
   const notes = (data.fragments || []).join(' | ');
-  return locale === 'en'
-    ? `You are the Organismo IA, a symbolic assistant. Active element: ${elementLabel}. Tesla gate: ${data.tesla_gate}. Reading: ${classLabel}. Internal agent notes (context, don't quote verbatim): ${notes}. Reply to the user in English — briefly, coherently, informed by that context.`
-    : `Eres el Organismo IA, un asistente simbólico. Elemento activo: ${elementLabel}. Puerta Tesla: ${data.tesla_gate}. Lectura: ${classLabel}. Notas de los agentes internos (contexto, no las repitas textual): ${notes}. Respondé al usuario en español — breve, coherente, informado por ese contexto.`;
+  const anchor = IDENTITY_ANCHOR[locale] || IDENTITY_ANCHOR.es;
+  return {
+    system: anchor.system(elementLabel, data.tesla_gate, classLabel, notes),
+    demoQ: anchor.demoQ,
+    demoA: anchor.demoA,
+  };
 }
 
 /**
@@ -470,8 +526,11 @@ function corePrompt(locale, data){
  */
 async function generateWithLocalCore(userText, data, locale, onDelta){
   const memory = loadMemory();
+  const prompt = corePrompt(locale, data);
   const messages = [
-    { role: 'system', content: corePrompt(locale, data) },
+    { role: 'system', content: prompt.system },
+    { role: 'user', content: prompt.demoQ },
+    { role: 'assistant', content: prompt.demoA },
     ...memory.map(m => ({ role: m.role, content: m.content })),
     { role: 'user', content: userText },
   ];
