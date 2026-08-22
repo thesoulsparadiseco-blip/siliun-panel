@@ -1,0 +1,14 @@
+{
+  "name": "Organismo IA Local",
+  "short_name": "Organismo IA",
+  "description": "Motor simbólico y 9 agentes internos, en español o inglés",
+  "start_url": "/organismo-app/",
+  "scope": "/organismo-app/",
+  "display": "standalone",
+  "background_color": "#0e0d0c",
+  "theme_color": "#0e0d0c",
+  "lang": "es",
+  "icons": [
+    { "src": "/organismo-app/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

@@ -30,6 +30,7 @@ from . import storage, logic, audit, notify, claude_client
 from .auth import verify_admin
 from .agent_auth import verify_agent
 from .models import StateUpdate, NoteUpdate, MessagePayload, AuditLogEntry, UserCreate, AgentChatRequest
+from .organismo_router import router as organismo_router
 
 AGENT_DAILY_LIMIT = int(os.getenv("AGENT_DAILY_LIMIT", "300"))
 
@@ -220,6 +221,14 @@ def agent_chat(payload: AgentChatRequest, token: str = Depends(verify_agent)):
     return {"reply": reply}
 
 
+app.include_router(organismo_router)
+
+
 _AGENT_STATIC_DIR = pathlib.Path(__file__).parent / "static" / "agent"
 if _AGENT_STATIC_DIR.exists():
     app.mount("/agent", StaticFiles(directory=str(_AGENT_STATIC_DIR), html=True), name="agent-frontend")
+
+# Distinto de /organismo (la API real, montada arriba) para no pisar sus rutas.
+_ORGANISMO_STATIC_DIR = pathlib.Path(__file__).parent / "static" / "organismo"
+if _ORGANISMO_STATIC_DIR.exists():
+    app.mount("/organismo-app", StaticFiles(directory=str(_ORGANISMO_STATIC_DIR), html=True), name="organismo-frontend")
