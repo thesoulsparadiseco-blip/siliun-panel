@@ -653,10 +653,26 @@ compressToggle.addEventListener('click', ()=>{
   renderChat();
 });
 
-renderQuickButtons();
-renderChat();
-setStatus(getToken() ? 'connected' : 'local');
-if(!getToken()) openSettings();
+async function loadPersistedHistory(){
+  const token = getToken();
+  if(!token) return;
+  try{
+    const resp = await fetch('/api/agent/history', { headers: { 'Authorization': 'Bearer ' + token } });
+    if(!resp.ok) return;
+    const data = await resp.json();
+    if(Array.isArray(data.history) && data.history.length){
+      chatLog = data.history.map(h => ({ role: h.role, text: h.text }));
+    }
+  }catch(e){ /* sin conexión al abrir: arrancamos con el chat local vacío */ }
+}
+
+(async ()=>{
+  await loadPersistedHistory();
+  renderQuickButtons();
+  renderChat();
+  setStatus(getToken() ? 'connected' : 'local');
+  if(!getToken()) openSettings();
+})();
 
 form.addEventListener('submit', (e)=>{
   e.preventDefault();

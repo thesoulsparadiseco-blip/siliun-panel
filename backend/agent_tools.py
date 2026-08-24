@@ -16,7 +16,7 @@ from . import audit, notify, storage
 from .pending_actions import create_pending_action
 
 READ_TOOLS = {"list_users", "get_user", "get_audit_log"}
-WRITE_TOOLS = {"add_note", "mark_ready", "trigger_signal", "open_malakai", "send_message"}
+WRITE_TOOLS = {"add_note", "remember_about_user", "mark_ready", "trigger_signal", "open_malakai", "send_message"}
 
 TOOL_SCHEMAS = [
     {
@@ -51,6 +51,20 @@ TOOL_SCHEMAS = [
             "type": "object",
             "properties": {"user_id": {"type": "string"}, "note": {"type": "string"}},
             "required": ["user_id", "note"],
+        },
+    },
+    {
+        "name": "remember_about_user",
+        "description": (
+            "Agrega una entrada de memoria de largo plazo sobre una persona — algo que notaste "
+            "en la charla y vale la pena recordar en el futuro. A diferencia de add_note (que "
+            "reemplaza la nota), esto se acumula: cada llamada suma una entrada nueva con fecha, "
+            "nunca borra las anteriores. Acción sensible: pendiente de confirmación."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {"user_id": {"type": "string"}, "text": {"type": "string"}},
+            "required": ["user_id", "text"],
         },
     },
     {
@@ -101,6 +115,8 @@ def _describe(name: str, tool_input: Dict[str, Any]) -> str:
     user_id = tool_input.get("user_id", "?")
     if name == "add_note":
         return f'Actualizar la nota de {user_id} a: "{tool_input.get("note", "")}"'
+    if name == "remember_about_user":
+        return f'Recordar sobre {user_id}: "{tool_input.get("text", "")}"'
     if name == "mark_ready":
         return f"Marcar a {user_id} como listo (user_state_ready = true)"
     if name == "trigger_signal":
@@ -168,6 +184,13 @@ def execute_confirmed_action(ticket: Dict[str, Any], actor: str = "agent") -> Di
         user["notes"] = tool_input.get("note", "")
         storage.upsert_user(user)
         audit.log_action(actor, "update_note", user_id, {"via": "agent"})
+        return {"status": "done"}
+
+    if name == "remember_about_user":
+        entry = {"ts": storage.now_iso(), "text": tool_input.get("text", "")}
+        user.setdefault("agentMemory", []).append(entry)
+        storage.upsert_user(user)
+        audit.log_action(actor, "remember_about_user", user_id, {"via": "agent"})
         return {"status": "done"}
 
     if name == "mark_ready":

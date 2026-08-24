@@ -17,6 +17,8 @@ DATA_DIR = os.getenv("DATA_DIR", "./data")
 USERS_FILE = os.path.join(DATA_DIR, "users.json")
 AUDIT_FILE = os.path.join(DATA_DIR, "audit_log.jsonl")
 RATE_FILE = os.path.join(DATA_DIR, "rate_counters.json")
+AGENT_CONVERSATION_FILE = os.path.join(DATA_DIR, "agent_conversation.json")
+MAX_AGENT_CONVERSATION = 200
 
 _lock = threading.Lock()
 
@@ -129,6 +131,27 @@ def get_audit(limit: int = 100) -> List[Dict]:
             lines = f.readlines()
     entries = [json.loads(l) for l in lines if l.strip()]
     return list(reversed(entries))[:limit]
+
+
+# ---------------- Personal agent memory ----------------
+# Single owner (one AGENT_TOKEN), so this is one flat conversation log —
+# no per-user keying needed. Lets /agent survive a reload or a different
+# device instead of starting blank every time.
+
+def load_agent_conversation() -> List[Dict]:
+    with _lock:
+        return _load_json(AGENT_CONVERSATION_FILE, [])
+
+
+def append_agent_messages(entries: List[Dict]):
+    if not entries:
+        return
+    with _lock:
+        conv = _load_json(AGENT_CONVERSATION_FILE, [])
+        conv.extend(entries)
+        if len(conv) > MAX_AGENT_CONVERSATION:
+            conv = conv[-MAX_AGENT_CONVERSATION:]
+        _save_json(AGENT_CONVERSATION_FILE, conv)
 
 
 # ---------------- Rate limiting ----------------

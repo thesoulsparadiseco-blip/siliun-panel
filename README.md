@@ -191,6 +191,13 @@ el otro abre tu agente.
   Confirmar/Cancelar. Solo se aplica de verdad cuando el dueño toca
   Confirmar, y queda registrada en el mismo audit log que las acciones del
   panel admin, marcada `"via": "agent"`.
+- **Memoria persistente.** La conversación con el agente se guarda del lado
+  del servidor (`GET/POST /api/agent/history`, `storage.py`, últimos 200
+  mensajes) — abrís `/agent` desde otro dispositivo y seguís la misma
+  charla, no arranca en blanco. Además, sobre cada persona del panel el
+  agente puede ir sumando recuerdos con `remember_about_user` — a diferencia
+  de la nota (que se pisa), esto se acumula con fecha y se lo pasa como
+  contexto real la próxima vez que hable de esa persona.
 - Sin token configurado, o sin red, el agente cae de vuelta a su base de
   conocimiento local sobre 369/Tesla/Cábala (la misma del archivo
   original) — sigue siendo útil offline, solo que sin IA real.

@@ -208,6 +208,11 @@ def get_audit_log(limit: int = 100, admin: str = Depends(verify_admin)):
 
 # ---------------- Personal agent (/agent frontend, Claude-backed) ----------------
 
+@app.get("/api/agent/history")
+def agent_history(token: str = Depends(verify_agent)):
+    return {"history": storage.load_agent_conversation()}
+
+
 @app.post("/api/agent/chat")
 def agent_chat(payload: AgentChatRequest, token: str = Depends(verify_agent)):
     try:
@@ -219,6 +224,14 @@ def agent_chat(payload: AgentChatRequest, token: str = Depends(verify_agent)):
         result = claude_client.ask(payload.message, payload.history)
     except RuntimeError as e:
         raise HTTPException(502, str(e))
+
+    entries = [
+        {"role": "user", "text": payload.message, "ts": storage.now_iso()},
+        {"role": "agent", "text": result["reply"], "ts": storage.now_iso()},
+    ]
+    for pa in result.get("pending_actions", []):
+        entries.append({"role": "system", "text": f"🔒 Propuesto: {pa['description']}", "ts": storage.now_iso()})
+    storage.append_agent_messages(entries)
 
     return result
 
