@@ -181,6 +181,16 @@ el otro abre tu agente.
   al ocultarse y se reanuda al volver. El reconocimiento de voz continuo
   envía audio a los servidores de Google (como el resto de la Web Speech
   API), así que requiere conexión.
+- **El agente puede operar el panel, no solo hablar de él.** Vía tool use de
+  la API de Anthropic, puede leer usuarios, resonancia y audit log
+  libremente (`list_users`, `get_user`, `get_audit_log`). Cualquier acción
+  que modifique algo — nota, `mark_ready`, `trigger_signal`,
+  `open_malakai`, `send_message` — **nunca se ejecuta sola**: queda como un
+  ticket pendiente (`backend/pending_actions.py`, en memoria, vence a los
+  15 min) y aparece en el chat como una tarjeta con botones
+  Confirmar/Cancelar. Solo se aplica de verdad cuando el dueño toca
+  Confirmar, y queda registrada en el mismo audit log que las acciones del
+  panel admin, marcada `"via": "agent"`.
 - Sin token configurado, o sin red, el agente cae de vuelta a su base de
   conocimiento local sobre 369/Tesla/Cábala (la misma del archivo
   original) — sigue siendo útil offline, solo que sin IA real.

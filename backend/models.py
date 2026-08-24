@@ -77,3 +77,7 @@ class AgentChatMessage(BaseModel):
 class AgentChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=4000)
     history: List[AgentChatMessage] = Field(default_factory=list)
+
+
+class AgentConfirmRequest(BaseModel):
+    ticket_id: str = Field(..., min_length=1, max_length=64)

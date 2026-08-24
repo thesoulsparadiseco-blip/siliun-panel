@@ -114,6 +114,20 @@
     letter-spacing:0.12em; text-transform:uppercase; color: var(--parchment-dim); opacity:0.6;
   }
   .msg.thinking{ opacity:0.5; font-style:italic; }
+  .msg.action-card{
+    max-width:88%; text-transform:none; letter-spacing:normal; opacity:1;
+    border:1px solid var(--copper); padding:12px 14px; text-align:left;
+    color:var(--parchment); font-size:13px; background:rgba(184,115,51,0.08);
+  }
+  .action-row{ display:flex; gap:8px; margin-top:10px; }
+  .action-row button{
+    font-family:'Space Mono', monospace; font-size:11px; letter-spacing:0.06em;
+    padding:6px 14px; cursor:pointer; border:1px solid var(--line);
+    background:transparent; color:var(--parchment-dim); transition:border-color .2s, color .2s;
+  }
+  .action-row .action-confirm{ border-color:var(--copper); color:var(--copper-bright); }
+  .action-row .action-confirm:hover{ background:var(--copper); color:var(--ink); }
+  .action-row .action-cancel:hover{ border-color:var(--parchment-dim); color:var(--parchment); }
 
   .topics{ padding:0 28px 16px; }
   .topics-label{
@@ -501,10 +515,60 @@ function findLocalMatch(query){
 }
 
 function renderBubble(container, m){
+  if(m.role === 'action'){
+    const div = document.createElement('div');
+    div.className = 'msg system action-card';
+    const p = document.createElement('div');
+    p.textContent = '🔒 ' + m.text;
+    div.appendChild(p);
+    if(!m.resolved){
+      const row = document.createElement('div');
+      row.className = 'action-row';
+      const confirmBtn = document.createElement('button');
+      confirmBtn.type = 'button';
+      confirmBtn.className = 'action-confirm';
+      confirmBtn.textContent = 'Confirmar';
+      confirmBtn.addEventListener('click', ()=> resolveAction(m, true));
+      const cancelBtn = document.createElement('button');
+      cancelBtn.type = 'button';
+      cancelBtn.className = 'action-cancel';
+      cancelBtn.textContent = 'Cancelar';
+      cancelBtn.addEventListener('click', ()=> resolveAction(m, false));
+      row.appendChild(confirmBtn);
+      row.appendChild(cancelBtn);
+      div.appendChild(row);
+    }
+    container.appendChild(div);
+    return;
+  }
   const div = document.createElement('div');
   div.className = 'msg ' + m.role;
   div.textContent = m.text;
   container.appendChild(div);
+}
+
+async function resolveAction(entry, confirmed){
+  entry.resolved = true;
+  if(!confirmed){
+    chatLog.push({ role:'system', text: '❌ Cancelado: ' + entry.text });
+    renderChat();
+    return;
+  }
+  renderChat();
+  try{
+    const token = getToken();
+    const resp = await fetch('/api/agent/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ ticket_id: entry.ticket_id })
+    });
+    const data = await resp.json();
+    if(!resp.ok) throw new Error(data.detail || ('http-' + resp.status));
+    chatLog.push({ role:'system', text: '✅ Hecho: ' + entry.text });
+  }catch(err){
+    chatLog.push({ role:'system', text: '⚠️ No se pudo confirmar (' + err.message + ')' });
+  }
+  renderChat();
 }
 
 function renderChat(){
@@ -544,8 +608,7 @@ async function askClaude(message, history){
     body: JSON.stringify({ message, history })
   });
   if(!resp.ok) throw new Error('http-' + resp.status);
-  const data = await resp.json();
-  return data.reply;
+  return await resp.json(); // { reply, pending_actions }
 }
 
 async function handleUserText(text){
@@ -561,9 +624,11 @@ async function handleUserText(text){
   chatLog.push(thinking);
   renderChat();
 
-  let answer, matchedEntry = null;
+  let answer, pendingActions = [], matchedEntry = null;
   try{
-    answer = await askClaude(text, history);
+    const data = await askClaude(text, history);
+    answer = data.reply;
+    pendingActions = data.pending_actions || [];
     setStatus('connected');
   }catch(err){
     setStatus('local');
@@ -574,6 +639,9 @@ async function handleUserText(text){
 
   chatLog.pop(); // remove "thinking" placeholder
   chatLog.push({ role:'agent', text: answer });
+  pendingActions.forEach(pa => {
+    chatLog.push({ role:'action', text: pa.description, ticket_id: pa.ticket_id, resolved: false });
+  });
   renderChat();
   renderQuickButtons();
   speak(answer);

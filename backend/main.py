@@ -26,10 +26,13 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from . import storage, logic, audit, notify, claude_client
+from . import storage, logic, audit, notify, claude_client, agent_tools, pending_actions
 from .auth import verify_admin
 from .agent_auth import verify_agent
-from .models import StateUpdate, NoteUpdate, MessagePayload, AuditLogEntry, UserCreate, AgentChatRequest
+from .models import (
+    StateUpdate, NoteUpdate, MessagePayload, AuditLogEntry, UserCreate,
+    AgentChatRequest, AgentConfirmRequest,
+)
 
 AGENT_DAILY_LIMIT = int(os.getenv("AGENT_DAILY_LIMIT", "300"))
 
@@ -213,11 +216,22 @@ def agent_chat(payload: AgentChatRequest, token: str = Depends(verify_agent)):
         raise HTTPException(429, str(e))
 
     try:
-        reply = claude_client.ask(payload.message, payload.history)
+        result = claude_client.ask(payload.message, payload.history)
     except RuntimeError as e:
         raise HTTPException(502, str(e))
 
-    return {"reply": reply}
+    return result
+
+
+@app.post("/api/agent/confirm")
+def agent_confirm(payload: AgentConfirmRequest, token: str = Depends(verify_agent)):
+    ticket = pending_actions.pop_pending_action(payload.ticket_id)
+    if not ticket:
+        raise HTTPException(404, "Esa acción ya no está disponible (se confirmó, se venció o nunca existió).")
+    result = agent_tools.execute_confirmed_action(ticket, actor="agent")
+    if "error" in result:
+        raise HTTPException(502, result["error"])
+    return {"description": ticket["description"], "result": result}
 
 
 _AGENT_STATIC_DIR = pathlib.Path(__file__).parent / "static" / "agent"
