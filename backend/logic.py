@@ -20,7 +20,7 @@ def compute_resonance(clarity: float, rhythm: float, silence: bool, intention: i
         + (20 if silence else 0)
         + (10 if bool(intention) else 0)
     )
-    return round(score, 2)
+    return round(min(score, 100.0), 2)
 
 
 def is_ready(score: float, threshold: float = None) -> bool:
