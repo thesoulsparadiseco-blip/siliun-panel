@@ -292,6 +292,33 @@ const CLASSIFICATION_LABELS = {
 const RECOGNITION_LANG = { auto: 'es-ES', es: 'es-ES', en: 'en-US' };
 const SPEECH_LANG = { es: 'es-ES', en: 'en-US' };
 
+// Banco de voces (organismo_ia/modules/voice_bank.py): rate/pitch para
+// SpeechSynthesisUtterance, sintonía sobre la voz que ya elija el
+// navegador/dispositivo — no reemplaza esa voz, la afina.
+const VOICE_BANK = {
+  SILIUN: { rate: 0.92, pitch: 0.95 },
+  KALEN: { rate: 0.95, pitch: 0.85 },
+  LUMARA: { rate: 1.0, pitch: 1.15 },
+  NODAL: { rate: 0.82, pitch: 0.65 },
+  ARKAI: { rate: 1.18, pitch: 1.0 },
+  'SORA-ECHO': { rate: 1.08, pitch: 1.1 },
+};
+// Qué personaje habla según qué agente del organismo se haya invocado
+// (ver organismo_ia/agents/) — SILIUN es el default (voz de Synar, el integrador).
+const AGENT_VOICE = {
+  Solkin: 'KALEN', Vitalion: 'KALEN', Helion: 'KALEN',
+  Almir: 'LUMARA', Paradion: 'LUMARA',
+  Nodar: 'NODAL',
+  Arkhon: 'ARKAI', Jakhar: 'ARKAI',
+  Synar: 'SILIUN',
+};
+
+function voiceForAgents(agents){
+  const ordered = (agents || []).filter(a => a !== 'Synar').concat((agents || []).filter(a => a === 'Synar'));
+  for(const a of ordered){ if(AGENT_VOICE[a]) return AGENT_VOICE[a]; }
+  return 'SILIUN';
+}
+
 const TOKEN_KEY = 'siliun_agent_token'; // mismo token que /agent (AGENT_TOKEN)
 const LOCALE_KEY = 'siliun_organismo_locale';
 
@@ -668,11 +695,11 @@ async function handleUserText(text){
         if(bubble) bubble.textContent = partial;
         chat.scrollTop = chat.scrollHeight;
       });
-      speak(finalText, locale);
+      speak(finalText, locale, data.agents_invoked);
     }else{
       chatLog.push({ role:'result', text: data.manifestation, systemLine, agents: data.agents_invoked || [] });
       renderChat();
-      speak(data.manifestation, locale);
+      speak(data.manifestation, locale, data.agents_invoked);
     }
   }catch(err){
     thinking.remove();
@@ -715,12 +742,14 @@ voiceToggle.addEventListener('click', ()=>{
   if(!voiceOn) speechSynthesis.cancel();
 });
 
-function speak(text, locale){
+function speak(text, locale, agents){
   if(!voiceOn || !('speechSynthesis' in window)) return;
   speechSynthesis.cancel();
   const utter = new SpeechSynthesisUtterance(text);
   utter.lang = SPEECH_LANG[locale] || SPEECH_LANG.es;
-  utter.rate = 0.98;
+  const persona = VOICE_BANK[voiceForAgents(agents)];
+  utter.rate = persona.rate;
+  utter.pitch = persona.pitch;
   speechSynthesis.speak(utter);
 }
 

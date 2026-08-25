@@ -29,6 +29,7 @@ from pydantic import BaseModel, Field
 from organismo_ia import run, OrganismoResult
 from organismo_ia.agents.arkhon import IntegrityViolation
 from organismo_ia.i18n import DEFAULT_LOCALE, get as get_locale
+from organismo_ia.modules import voice_bank
 from organismo_ia.ui import MODES
 
 from .agent_auth import verify_agent
@@ -69,3 +70,17 @@ def ui_mode(mode: str, locale: str = DEFAULT_LOCALE, token: str = Depends(verify
         msg = get_locale(locale)["errors"]["unknown_ui_mode"].format(mode=mode, valid=list(MODES))
         raise HTTPException(404, msg)
     return describe(locale)
+
+
+@router.get("/voices")
+def list_voices(token: str = Depends(verify_agent)):
+    return {"voices": voice_bank.list_voices()}
+
+
+@router.get("/voices/{nombre}")
+def get_voice(nombre: str, token: str = Depends(verify_agent)):
+    profile = voice_bank.get_voice(nombre)
+    if profile is None:
+        known = [v["nombre"] for v in voice_bank.list_voices()]
+        raise HTTPException(404, f"Voz desconocida: '{nombre}'. Válidas: {known}")
+    return profile

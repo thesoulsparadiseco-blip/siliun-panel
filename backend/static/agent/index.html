@@ -243,6 +243,8 @@
   <div class="voice-bar" id="voiceSelectBar" style="display:none;">
     <span style="opacity:0.6;">Voz:</span>
     <select id="voiceSelect"></select>
+    <span style="opacity:0.6;">Personaje:</span>
+    <select id="personaSelect"></select>
   </div>
 
   <form id="form">
@@ -615,9 +617,29 @@ const micBtn = document.getElementById('micBtn');
 const voiceToggle = document.getElementById('voiceToggle');
 const voiceSelectBar = document.getElementById('voiceSelectBar');
 const voiceSelect = document.getElementById('voiceSelect');
+const personaSelect = document.getElementById('personaSelect');
 let voiceOn = false;
 let recognizing = false;
 let selectedVoiceURI = null;
+
+// Banco de voces (organismo_ia/modules/voice_bank.py): rate/pitch para
+// SpeechSynthesisUtterance — sintonía sobre la voz elegida en #voiceSelect,
+// no la reemplaza. Cualquier voz del navegador/dispositivo sirve de base.
+const VOICE_BANK = {
+  SILIUN: { rate: 0.92, pitch: 0.95 },
+  KALEN: { rate: 0.95, pitch: 0.85 },
+  LUMARA: { rate: 1.0, pitch: 1.15 },
+  NODAL: { rate: 0.82, pitch: 0.65 },
+  ARKAI: { rate: 1.18, pitch: 1.0 },
+  'SORA-ECHO': { rate: 1.08, pitch: 1.1 },
+};
+Object.keys(VOICE_BANK).forEach(nombre=>{
+  const opt = document.createElement('option');
+  opt.value = nombre;
+  opt.textContent = nombre;
+  personaSelect.appendChild(opt);
+});
+personaSelect.value = 'SILIUN';
 
 voiceToggle.addEventListener('click', ()=>{
   voiceOn = !voiceOn;
@@ -659,9 +681,10 @@ function speak(text){
   if(!voiceOn || !('speechSynthesis' in window)) return;
   speechSynthesis.cancel();
   const utter = new SpeechSynthesisUtterance(text);
+  const persona = VOICE_BANK[personaSelect.value] || VOICE_BANK.SILIUN;
   utter.lang = 'es-ES';
-  utter.rate = 0.98;
-  utter.pitch = 0.95;
+  utter.rate = persona.rate;
+  utter.pitch = persona.pitch;
   const voices = speechSynthesis.getVoices();
   const chosen = voices.find(v => v.voiceURI === selectedVoiceURI);
   if(chosen){ utter.voice = chosen; utter.lang = chosen.lang; }
