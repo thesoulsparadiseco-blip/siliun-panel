@@ -48,3 +48,19 @@ services:
         sync: false
       - key: ADMIN_ID
         value: "admin"
+
+  # ---- Sistema de llamadas: registro offline + video llamada/chat grupal ----
+  - type: web
+    name: siliun-offline-calls
+    env: python
+    plan: free
+    buildCommand: "pip install -r offline-calls/requirements.txt"
+    startCommand: "cd offline-calls && uvicorn server:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+    # NOTE: el estado de las salas de video/chat vive en memoria del
+    # proceso. El plan free de Render duerme el servicio tras inactividad
+    # y lo reinicia con cada deploy, así que las salas activas se pierden
+    # en esos casos (no afecta al registro offline, que vive en el
+    # localStorage de cada navegador).

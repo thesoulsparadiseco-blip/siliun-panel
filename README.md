@@ -29,7 +29,11 @@ siliun-panel/
 │   └── README.md      # detalle de la arquitectura (ver sección 8 abajo)
 ├── panel/            # Streamlit — UI de administración (7 módulos)
 │   └── streamlit_app.py
-├── render.yaml       # blueprint de despliegue (2 servicios + disco)
+├── offline-calls/    # FastAPI + HTML — registro offline de llamadas y
+│   │                 # video llamada/chat grupal (ver su propio README)
+│   ├── server.py
+│   └── index.html
+├── render.yaml       # blueprint de despliegue (3 servicios + disco)
 ├── .env.example
 └── .gitignore
 ```
