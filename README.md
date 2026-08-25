@@ -29,6 +29,8 @@ siliun-panel/
 │   └── README.md      # detalle de la arquitectura (ver sección 8 abajo)
 ├── panel/            # Streamlit — UI de administración (7 módulos)
 │   └── streamlit_app.py
+├── physio_intelligence/  # Physio Intelligence Platform — proyecto independiente (ver sección 9 abajo)
+│   └── README.md
 ├── render.yaml       # blueprint de despliegue (2 servicios + disco)
 ├── .env.example
 └── .gitignore
@@ -274,3 +276,24 @@ RAM no alcanza ni para un modelo chico cuantizado).
 - [ ] Embeber el panel en la página Webflow `/siliun/panel`
 - [ ] Migrar `storage.py` a Postgres antes del piloto con usuarios reales
 - [ ] Piloto Founders (5–10 usuarios, sesión 23 julio)
+
+## 9. Physio Intelligence Platform (`physio_intelligence/`, proyecto independiente)
+
+Vive en este mismo repo por conveniencia, pero **no tiene relación** con
+Siliun Panel — es un producto distinto: una plataforma que aprende el
+comportamiento fisiológico habitual de una persona (glucosa, FC,
+temperatura, movimiento, ambiente) y detecta cuándo se desvía de su propio
+patrón. El roadmap completo (V1–V3) está en
+`physio_intelligence/docs/ROADMAP.md`.
+
+Lo que hay implementado ahora es el MVP de 7 días de ese roadmap: un
+**simulador fisiológico** sin sensores reales que ejercita de punta a punta
+el Personal Baseline Model, el Fusion Engine (reglas + persistencia, sin
+IA) y la caja negra de eventos (±60 min), sobre los 8 eventos definidos en
+el documento — detalle completo en `physio_intelligence/README.md`.
+
+```bash
+cd physio_intelligence
+python -m physio_sim.cli                  # corre los 9 escenarios sintéticos
+pip install -r requirements-dev.txt && pytest   # 16 tests
+```
