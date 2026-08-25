@@ -289,10 +289,12 @@ patrón. El roadmap completo (V1–V3) está en
 Lo que hay implementado ahora es el MVP de 7 días de ese roadmap: un
 **simulador fisiológico** sin sensores reales que ejercita de punta a punta
 el Personal Baseline Model, un **Cardiac Agent** (FC, IBI, HRV) y un
-**Metabolic Agent** (glucosa + pendiente), y el Fusion Engine (reglas
-cross-dominio + persistencia, sin IA) con su caja negra de eventos
-(±60 min), sobre los 8 eventos definidos en el documento — detalle
-completo en `physio_intelligence/README.md`.
+**Metabolic Agent** (glucosa + pendiente), el Fusion Engine (reglas
+cross-dominio + persistencia, sin IA) y un **Action Engine** que traduce
+cada evento en una alerta con opciones de feedback humano — entregada por
+ahora a un reloj simulado, no uno real — sobre los 8 eventos definidos en
+el documento y con su caja negra de episodios (±60 min). Detalle completo
+en `physio_intelligence/README.md`.
 
 ```bash
 cd physio_intelligence
