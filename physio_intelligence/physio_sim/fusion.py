@@ -9,25 +9,24 @@ redes neuronales complejas"). Cada señal fiable pasa por:
 La "persistencia" evita alertar por un único pico ruidoso: una condición
 tiene que sostenerse varios ticks seguidos antes de confirmarse como evento.
 
-El dominio cardíaco (FC, HRV, IBI) vive en `agents.CardiacAgent`: el Fusion
-Engine lo consulta como a cualquier otro agente especializado (sección 6) y
-solo añade las reglas que son genuinamente cross-dominio — glucosa+FC y la
+Los dominios cardíaco (FC, HRV, IBI) y metabólico (glucosa) viven en
+`agents.CardiacAgent` y `agents.MetabolicAgent`: el Fusion Engine los
+consulta como a cualquier otro agente especializado (sección 6) y solo
+añade las reglas que son genuinamente cross-dominio — glucosa+FC y la
 anomalía multisensor, que por definición nadie más que el Fusion Agent
 puede ver.
 """
 from __future__ import annotations
 
-from collections import deque
-from dataclasses import dataclass, field
 from datetime import timedelta
 
-from .agents import CardiacAgent
+from .agents import CardiacAgent, MetabolicAgent
 from .baseline import PersonalBaseline
 from .events import Event, EventType, make_event
+from .history import SignalHistory
 from .models import SignalReading, SignalType
 
 # ---- Umbrales de las reglas (constantes ajustables, no aprendidas) ----
-GLUCOSE_RAPID_DROP_RATE = -2.0     # mg/dL por minuto
 GLUCOSE_DROP_HR_COMBO_Z = 1.5      # FC z-score mínimo para la combinación con caída de glucosa
 THERMAL_ZSCORE_HIGH = 2.0
 THERMAL_AMBIENT_MIN = 30.0         # °C
@@ -39,40 +38,23 @@ MULTISENSOR_MIN_SIGNALS = 3
 MULTISENSOR_ZSCORE = 2.0
 PERSISTENCE_TICKS = 3               # ticks consecutivos para confirmar un evento
 
-_HISTORY_WINDOW = timedelta(minutes=30)
-
-
-@dataclass
-class _SignalHistory:
-    readings: deque[SignalReading] = field(default_factory=deque)
-
-    def add(self, reading: SignalReading) -> None:
-        self.readings.append(reading)
-        cutoff = reading.timestamp - _HISTORY_WINDOW
-        while self.readings and self.readings[0].timestamp < cutoff:
-            self.readings.popleft()
-
-    def slope_per_minute(self, minutes: float) -> float | None:
-        if len(self.readings) < 2:
-            return None
-        latest = self.readings[-1]
-        cutoff = latest.timestamp - timedelta(minutes=minutes)
-        window = [r for r in self.readings if r.timestamp >= cutoff]
-        if len(window) < 2:
-            return None
-        first, last = window[0], window[-1]
-        dt = (last.timestamp - first.timestamp).total_seconds() / 60.0
-        if dt <= 0:
-            return None
-        return (last.value - first.value) / dt
+# Eventos que el propio Fusion Engine posee (los cardíacos y el metabólico
+# "puro" viven en sus agentes — ver agents/cardiac.py y agents/metabolic.py).
+_FUSION_OWNED_EVENTS = (
+    EventType.GLUCOSE_DROP_HR_UP,
+    EventType.THERMAL_LOAD_HIGH,
+    EventType.FALL_IMMOBILITY,
+    EventType.MULTISENSOR_ANOMALY,
+)
 
 
 class FusionEngine:
     def __init__(self, baseline: PersonalBaseline | None = None) -> None:
         self.baseline = baseline or PersonalBaseline()
         self.cardiac = CardiacAgent(self.baseline)
-        self._history: dict[SignalType, _SignalHistory] = {s: _SignalHistory() for s in SignalType}
-        self._persistence: dict[EventType, int] = {e: 0 for e in EventType}
+        self.metabolic = MetabolicAgent(self.baseline)
+        self._movement_history = SignalHistory()
+        self._persistence: dict[EventType, int] = {e: 0 for e in _FUSION_OWNED_EVENTS}
 
     def ingest(self, readings: list[SignalReading]) -> list[Event]:
         """Procesa un tick (una lectura por señal disponible). Devuelve los eventos confirmados."""
@@ -80,15 +62,24 @@ class FusionEngine:
             return []
         reliable = [r for r in readings if r.reliable]
         for r in reliable:
-            self._history[r.signal_type].add(r)
+            if r.signal_type == SignalType.MOVEMENT:
+                self._movement_history.add(r)
 
         by_type = {r.signal_type: r for r in reliable}
         timestamp = readings[0].timestamp
 
+        self.metabolic.observe(by_type)
         cardiac = self.cardiac.assess(by_type)
+        metabolic = self.metabolic.assess(by_type)
 
         events: list[Event] = []
-        events += self._check_glucose(by_type, timestamp, cardiac.heart_rate_zscore)
+        combo = self._check_glucose_hr_combo(metabolic, cardiac, timestamp)
+        events += combo
+        if combo:
+            # el evento cross-dominio ya explica esta caída: no alertar dos veces
+            self.metabolic.reset_rapid_drop_persistence()
+        else:
+            events += self.metabolic.check_events(metabolic, timestamp)
         events += self.cardiac.check_events(by_type, timestamp)
         events += self._check_thermal(by_type, timestamp)
         events += self._check_fall(by_type, timestamp)
@@ -103,40 +94,20 @@ class FusionEngine:
 
         return events
 
-    # ---- 1 y 2: glucosa ----
-    def _check_glucose(self, by_type: dict, timestamp, hr_z: float | None) -> list[Event]:
-        glucose = by_type.get(SignalType.GLUCOSE)
-        if glucose is None:
-            self._persistence[EventType.GLUCOSE_RAPID_DROP] = 0
-            self._persistence[EventType.GLUCOSE_DROP_HR_UP] = 0
-            return []
-
-        slope = self._history[SignalType.GLUCOSE].slope_per_minute(15)
-        dropping = slope is not None and slope <= GLUCOSE_RAPID_DROP_RATE
-        self._persistence[EventType.GLUCOSE_RAPID_DROP] = (
-            self._persistence[EventType.GLUCOSE_RAPID_DROP] + 1 if dropping else 0
-        )
-
-        hr = by_type.get(SignalType.HEART_RATE)
-        combo = dropping and hr_z is not None and hr_z >= GLUCOSE_DROP_HR_COMBO_Z
+    # ---- 2: glucosa + FC (cross-dominio) ----
+    def _check_glucose_hr_combo(self, metabolic, cardiac, timestamp) -> list[Event]:
+        hr_z = cardiac.heart_rate_zscore
+        combo = metabolic.dropping_rapidly and hr_z is not None and hr_z >= GLUCOSE_DROP_HR_COMBO_Z
         self._persistence[EventType.GLUCOSE_DROP_HR_UP] = (
             self._persistence[EventType.GLUCOSE_DROP_HR_UP] + 1 if combo else 0
         )
 
         if self._persistence[EventType.GLUCOSE_DROP_HR_UP] >= PERSISTENCE_TICKS:
             self._persistence[EventType.GLUCOSE_DROP_HR_UP] = 0
-            self._persistence[EventType.GLUCOSE_RAPID_DROP] = 0
             return [make_event(
                 EventType.GLUCOSE_DROP_HR_UP, timestamp,
-                f"Glucosa cae {slope:.1f} mg/dL/min con FC {hr_z:+.1f} DE por encima de tu patrón.",
-                [glucose, hr],
-            )]
-        if self._persistence[EventType.GLUCOSE_RAPID_DROP] >= PERSISTENCE_TICKS:
-            self._persistence[EventType.GLUCOSE_RAPID_DROP] = 0
-            return [make_event(
-                EventType.GLUCOSE_RAPID_DROP, timestamp,
-                f"Glucosa descendiendo a {slope:.1f} mg/dL/min de forma sostenida.",
-                [glucose],
+                f"Glucosa cae {metabolic.glucose_slope:.1f} mg/dL/min con FC {hr_z:+.1f} DE por encima de tu patrón.",
+                [metabolic.glucose, cardiac.heart_rate],
             )]
         return []
 
@@ -175,9 +146,8 @@ class FusionEngine:
         if movement is None:
             return []
 
-        history = self._history[SignalType.MOVEMENT].readings
         cutoff = timestamp - timedelta(minutes=IMMOBILITY_WINDOW_MIN + 2)
-        recent = [r for r in history if r.timestamp >= cutoff]
+        recent = [r for r in self._movement_history.readings if r.timestamp >= cutoff]
         impact = next((r for r in recent if r.value >= FALL_IMPACT_G), None)
         if impact is None:
             return []

@@ -1,10 +1,11 @@
 # Physio Intelligence Platform
 
 Plataforma de Inteligencia Fisiológica — el roadmap completo (V1–V3) está en
-[`docs/ROADMAP.md`](docs/ROADMAP.md). Este repo implementa los dos primeros
+[`docs/ROADMAP.md`](docs/ROADMAP.md). Este repo implementa los primeros
 pasos concretos de esa hoja de ruta: el **paso 5 de la sección 30**
-(simulador fisiológico, el **MVP de 7 días de la sección 23**) y el
-**paso 6** (primer agente cardiovascular, sección 6).
+(simulador fisiológico, el **MVP de 7 días de la sección 23**), el
+**paso 6** (primer agente cardiovascular) y el **paso 7** (primer agente
+metabólico) — ambos de la sección 6.
 
 ## Qué es esto
 
@@ -17,22 +18,27 @@ escenario sintético
         ↓
 Personal Baseline Model   (media/desviación por señal + contexto, sección 10)
         ↓
-Cardiac Agent              (FC, IBI, HRV contra el baseline — sección 6)
-        ↓
-Fusion Engine              (reglas cross-dominio + persistencia, sección 6 y 8)
-        ↓
-8 eventos V1                (sección 7)
-        ↓
-Black Box                  (±60 min por evento, sección 11)
+   ┌────────────────┬──────────────────┐
+   ▼                ▼                  │
+Cardiac Agent   Metabolic Agent        │   (sección 6 — cada uno mira solo su dominio)
+FC, IBI, HRV    glucosa + pendiente    │
+   └────────────────┴──────────────────┘
+                     ↓
+              Fusion Engine   (reglas cross-dominio + persistencia, sección 6 y 8)
+                     ↓
+              8 eventos V1     (sección 7)
+                     ↓
+              Black Box       (±60 min por evento, sección 11)
 ```
 
-El Cardiac Agent es el primero de los "Agentes Fisio" de la sección 6: mira
-solo su propio dominio (FC/IBI/HRV) contra el baseline personal y decide sus
-propios eventos (FC alta/baja en reposo, recuperación anómala tras
-ejercicio). El Fusion Engine lo consulta como a cualquier otro agente y
-añade únicamente lo que es genuinamente cross-dominio — la combinación
-glucosa+FC y la anomalía multisensor, que por definición ningún agente
-individual puede ver por sí solo.
+Cardiac y Metabolic son los dos primeros "Agentes Fisio" de la sección 6:
+cada uno mira solo su propio dominio contra el baseline personal y decide
+sus propios eventos — Cardiac: FC alta/baja en reposo, recuperación anómala
+tras ejercicio; Metabolic: glucosa descendiendo rápidamente. El Fusion
+Engine los consulta a ambos como a cualquier otro agente y añade únicamente
+lo que es genuinamente cross-dominio — la combinación glucosa+FC y la
+anomalía multisensor, que por definición ningún agente individual puede ver
+por sí solo.
 
 Existe para responder la pregunta de la sección 27 antes de tener ningún
 hardware: *¿recibimos señales, las contextualizamos, creamos un baseline y
@@ -99,13 +105,17 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-21 tests. Verifican, escenario por escenario, que:
+26 tests. Verifican, escenario por escenario, que:
 - el baseline no puntúa desviaciones hasta tener suficientes muestras
   (`MIN_SAMPLES_FOR_BASELINE`, sección 10);
 - el Cardiac Agent aísla FC/IBI/HRV correctamente, solo dispara "FC alta"
   en contexto de reposo, y detecta la transición ejercicio→reposo para la
   regla de recuperación (`tests/test_cardiac_agent.py`, sin pasar por el
   Fusion Engine);
+- el Metabolic Agent solo dispara con una pendiente sostenida (no con
+  ruido plano), respeta la ventana de persistencia, y se puede suprimir
+  cuando el Fusion Engine ya explicó la caída vía el evento cross-dominio
+  (`tests/test_metabolic_agent.py`, también sin Fusion Engine);
 - cada uno de los 8 eventos se dispara en su escenario correspondiente a
   través del pipeline completo;
 - el día normal no genera ningún evento (cero falsos positivos);
@@ -118,17 +128,20 @@ pytest
 physio_sim/
   models.py       # SignalReading + los 5 tipos de medición (sección 19)
   baseline.py     # Personal Baseline Model, Welford online por (señal, contexto)
+  history.py      # SignalHistory: ventana deslizante + pendiente, compartida por agentes y Fusion Engine
   agents/
     cardiac.py     # Cardiac Agent: FC, IBI, HRV contra el baseline (sección 6)
+    metabolic.py   # Metabolic Agent: glucosa + pendiente contra el baseline (sección 6)
   fusion.py       # Fusion Engine: reglas cross-dominio + persistencia (secciones 6 y 8)
   events.py       # EventType (8), SystemState (HABITUAL/CAMBIO/COMPROBAR/ALERTA)
   blackbox.py     # Caja negra ±60 min (sección 11)
   scenarios.py    # 9 escenarios sintéticos (los 8 eventos + control)
-  simulator.py    # orquesta escenario → baseline → cardiaco → fusión → caja negra
+  simulator.py    # orquesta escenario → baseline → agentes → fusión → caja negra
   cli.py          # punto de entrada de línea de comandos
 tests/
   test_baseline.py
   test_cardiac_agent.py
+  test_metabolic_agent.py
   test_fusion_events.py
 docs/
   ROADMAP.md      # documento maestro completo (V1–V3)
@@ -140,10 +153,9 @@ No es la app Android/Wear OS de la sección 18, no lee ningún sensor real
 (Libre, Galaxy Watch, BLE), y no persiste nada — cada corrida es en
 memoria y desde cero. Es deliberadamente así: el objetivo del MVP de 7
 días es validar el *pipeline de decisión*, no el hardware. El siguiente
-paso natural (sección 30, paso 7) es un Metabolic Agent equivalente al
-Cardiac Agent, y luego sustituir `scenarios.py` por datos reales de un
-smartwatch y un CGM, manteniendo `baseline.py`, `fusion.py`, `agents/` y
-`blackbox.py` sin cambios de fondo.
+paso natural (sección 30, paso 9) es sustituir `scenarios.py` por datos
+reales de un smartwatch y un CGM, manteniendo `baseline.py`, `fusion.py`,
+`agents/` y `blackbox.py` sin cambios de fondo.
 
 ## Próximos pasos (sección 30)
 
@@ -153,7 +165,7 @@ smartwatch y un CGM, manteniendo `baseline.py`, `fusion.py`, `agents/` y
 4. Arquitectura Android/Wear OS
 5. ~~Simulador fisiológico~~ — **este repo**
 6. ~~Primer agente cardiovascular~~ — **`physio_sim/agents/cardiac.py`**, sobre datos sintéticos; falta conectarlo a un smartwatch real
-7. Primer agente metabólico (datos reales de un CGM)
+7. ~~Primer agente metabólico~~ — **`physio_sim/agents/metabolic.py`**, sobre datos sintéticos; falta conectarlo a un CGM real
 8. Fusion Engine sobre datos reales (ya construido aquí, sección 8 arriba)
 9. Primera alerta en reloj
 10. Prueba con datos reales
