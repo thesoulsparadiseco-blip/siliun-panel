@@ -4,8 +4,10 @@ Plataforma de Inteligencia Fisiológica — el roadmap completo (V1–V3) está 
 [`docs/ROADMAP.md`](docs/ROADMAP.md). Este repo implementa los primeros
 pasos concretos de esa hoja de ruta: el **paso 5 de la sección 30**
 (simulador fisiológico, el **MVP de 7 días de la sección 23**), los
-**pasos 6 y 7** (primer agente cardiovascular y metabólico, sección 6) y
-el **paso 9** (primera alerta en reloj, sección 3).
+**pasos 6 y 7** (primer agente cardiovascular y metabólico, sección 6), el
+**paso 9** (primera alerta en reloj, sección 3), y la investigación del
+**paso 3** (viabilidad real de conexión al Libre — ver
+[`docs/LIBRE_CONNECTIVITY.md`](docs/LIBRE_CONNECTIVITY.md)).
 
 ## Qué es esto
 
@@ -187,7 +189,7 @@ sin cambios de fondo.
 
 1. ~~Nombre provisional del proyecto~~ — `physio-intelligence-platform`
 2. Hardware exacto del prototipo
-3. Viabilidad real de conexión Libre
+3. ~~Viabilidad real de conexión Libre~~ — investigado, ver [`docs/LIBRE_CONNECTIVITY.md`](docs/LIBRE_CONNECTIVITY.md); recomendación: camino C (API no oficial, ej. `libre-link-up-py`) acotado al piloto Founders, evaluando Thryve en paralelo para escalar
 4. Arquitectura Android/Wear OS
 5. ~~Simulador fisiológico~~ — **este repo**
 6. ~~Primer agente cardiovascular~~ — **`physio_sim/agents/cardiac.py`**, sobre datos sintéticos; falta conectarlo a un smartwatch real
