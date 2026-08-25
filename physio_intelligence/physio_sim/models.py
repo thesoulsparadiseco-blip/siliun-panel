@@ -7,9 +7,8 @@ con una inferencia derivada.
 from __future__ import annotations
 
 import enum
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
 
 
 class SignalType(str, enum.Enum):
@@ -64,7 +63,6 @@ class SignalReading:
     quality: float = 1.0  # 0..1 — fiabilidad de la lectura (sección 8, "¿ES FIABLE?")
     context: ActivityContext = ActivityContext.DEFAULT
     unit: str = ""
-    extra: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not self.unit:

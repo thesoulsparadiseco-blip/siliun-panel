@@ -18,7 +18,7 @@ V2. FC, IBI y HRV sí encajan en el modelo escalar y se implementan aquí.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from ..baseline import PersonalBaseline
 from ..events import Event, EventType, make_event

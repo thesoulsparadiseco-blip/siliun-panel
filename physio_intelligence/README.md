@@ -118,7 +118,7 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-39 tests. Verifican, escenario por escenario, que:
+42 tests. Verifican, escenario por escenario, que:
 - el baseline no puntúa desviaciones hasta tener suficientes muestras
   (`MIN_SAMPLES_FOR_BASELINE`, sección 10);
 - el Cardiac Agent aísla FC/IBI/HRV correctamente, solo dispara "FC alta"
@@ -133,8 +133,10 @@ pytest
   través del pipeline completo;
 - el día normal no genera ningún evento (cero falsos positivos) ni ninguna
   alerta de reloj;
-- la caja negra abre un episodio con ventana "antes" por cada evento
-  (sección 11);
+- la caja negra abre un episodio con ventana "antes" por cada evento, lo
+  cierra recién a los 60 min de después (ni un minuto antes), y
+  `add_feedback` adjunta la respuesta humana al episodio correcto sin
+  filtrarse a otros (`tests/test_blackbox.py`, sección 11 y 12);
 - el Action Engine nunca reescribe el mensaje del evento (medición +
   inferencia, nunca diagnóstico), cada tipo de evento tiene sus opciones de
   feedback ("Estoy bien" primero, "Otro" al final, sin duplicados), y en una
@@ -164,6 +166,7 @@ tests/
   test_metabolic_agent.py
   test_fusion_events.py
   test_action_engine.py
+  test_blackbox.py
 docs/
   ROADMAP.md      # documento maestro completo (V1–V3)
 ```
