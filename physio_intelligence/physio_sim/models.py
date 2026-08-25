@@ -15,6 +15,8 @@ from typing import Any
 class SignalType(str, enum.Enum):
     GLUCOSE = "glucose"
     HEART_RATE = "heart_rate"
+    IBI = "ibi"    # intervalo entre latidos (Cardiac Agent, sección 6)
+    HRV = "hrv"    # variabilidad de FC, rmssd (Cardiac Agent, sección 6)
     SKIN_TEMP = "skin_temp"
     MOVEMENT = "movement"
     AMBIENT_TEMP = "ambient_temp"
@@ -43,6 +45,8 @@ class ActivityContext(str, enum.Enum):
 UNITS: dict[SignalType, str] = {
     SignalType.GLUCOSE: "mg/dL",
     SignalType.HEART_RATE: "bpm",
+    SignalType.IBI: "ms",
+    SignalType.HRV: "ms",
     SignalType.SKIN_TEMP: "°C",
     SignalType.MOVEMENT: "g",
     SignalType.AMBIENT_TEMP: "°C",

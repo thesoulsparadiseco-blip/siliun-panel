@@ -1,10 +1,14 @@
 """Escenarios sintéticos — el Simulador Fisiológico de la sección 23.
 
 Sin sensores reales: cada escenario es una lista de 'fases' (contexto +
-valores base) que se convierte en lecturas minuto a minuto de las seis
-señales núcleo de V1 (glucosa, FC, temperatura cutánea, movimiento,
-temperatura ambiente, humedad). Sirven para probar baseline, cambio,
-persistencia, fusión, evento y alerta sin esperar a tener hardware.
+valores base) que se convierte en lecturas minuto a minuto de las ocho
+señales del núcleo V1 (glucosa, FC, IBI, HRV, temperatura cutánea,
+movimiento, temperatura ambiente, humedad). Sirven para probar baseline,
+cambio, persistencia, fusión, evento y alerta sin esperar a tener hardware.
+
+El IBI se deriva de la FC (60000 / FC + ruido) en vez de pedirlo por fase:
+son la misma señal cardíaca vista de dos formas, y así ningún escenario
+puede dejarlas inconsistentes entre sí por accidente.
 """
 from __future__ import annotations
 
@@ -23,6 +27,7 @@ class Phase:
     context: ActivityContext = ActivityContext.RESTING
     glucose_slope: float = 0.0          # mg/dL por minuto, respecto al valor acumulado
     heart_rate: float = 65.0
+    hrv: float = 45.0                   # rMSSD típico en reposo, ms
     skin_temp: float = 33.0
     ambient_temp: float = 22.0
     humidity: float = 45.0
@@ -32,7 +37,7 @@ class Phase:
 
 
 def render(phases: list[Phase], start: datetime, seed: int = 0, glucose_start: float = 95.0) -> list[list[SignalReading]]:
-    """Convierte una lista de fases en lecturas minuto a minuto de las seis señales."""
+    """Convierte una lista de fases en lecturas minuto a minuto de las ocho señales."""
     rng = random.Random(seed)
     ticks: list[list[SignalReading]] = []
     t = start
@@ -42,6 +47,8 @@ def render(phases: list[Phase], start: datetime, seed: int = 0, glucose_start: f
         for minute in range(phase.duration_min):
             glucose += phase.glucose_slope + rng.uniform(-0.4, 0.4)
             hr = phase.heart_rate + rng.uniform(-2.5, 2.5)
+            ibi = 60_000.0 / hr + rng.uniform(-5.0, 5.0)  # misma señal cardíaca que la FC, vista como intervalo
+            hrv = max(5.0, phase.hrv + rng.uniform(-3.0, 3.0))
             skin = phase.skin_temp + rng.uniform(-0.15, 0.15)
             ambient = phase.ambient_temp + rng.uniform(-0.3, 0.3)
             humidity = phase.humidity + rng.uniform(-1.5, 1.5)
@@ -52,6 +59,8 @@ def render(phases: list[Phase], start: datetime, seed: int = 0, glucose_start: f
             readings = [
                 SignalReading(t, SignalType.GLUCOSE, round(glucose, 1), source="sim.cgm", context=phase.context),
                 SignalReading(t, SignalType.HEART_RATE, round(hr, 1), source="sim.watch", context=phase.context),
+                SignalReading(t, SignalType.IBI, round(ibi, 1), source="sim.watch", context=phase.context),
+                SignalReading(t, SignalType.HRV, round(hrv, 1), source="sim.watch", context=phase.context),
                 SignalReading(t, SignalType.SKIN_TEMP, round(skin, 2), source="sim.watch", context=phase.context),
                 SignalReading(t, SignalType.AMBIENT_TEMP, round(ambient, 1), source="sim.ble_env", context=phase.context),
                 SignalReading(t, SignalType.HUMIDITY, round(humidity, 1), source="sim.ble_env", context=phase.context),

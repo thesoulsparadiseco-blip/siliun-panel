@@ -60,3 +60,16 @@ class Event:
     @property
     def label(self) -> str:
         return EVENT_LABELS[self.event_type]
+
+
+def make_event(
+    event_type: EventType, timestamp: datetime, message: str, readings: list[SignalReading]
+) -> Event:
+    """Fábrica compartida por el Fusion Engine y los agentes especializados."""
+    return Event(
+        event_type=event_type,
+        timestamp=timestamp,
+        state=EVENT_DEFAULT_STATE[event_type],
+        message=message,
+        triggering_readings=list(readings),
+    )
