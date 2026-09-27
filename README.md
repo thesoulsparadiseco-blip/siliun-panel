@@ -37,14 +37,15 @@ siliun-panel/
 ## 1. Correr localmente
 
 ```bash
-# Backend
-cd backend
-pip install -r requirements.txt
+# Backend — desde la RAÍZ del repo, no desde backend/ (main.py usa imports
+# relativos que solo resuelven así: "uvicorn backend.main:app", no "cd backend && uvicorn main:app")
+pip install -r backend/requirements.txt
 export SILIUN_ADMIN_TOKEN="dev-token-123"
-export DATA_DIR="../data"
-uvicorn main:app --reload --port 8000
+export AGENT_TOKEN="dev-token-123"      # protege /agent y /organismo
+export DATA_DIR="./data"
+uvicorn backend.main:app --reload --port 8000
 
-# Panel (otra terminal)
+# Panel (otra terminal, sí puede correr desde panel/)
 cd panel
 pip install -r requirements.txt
 export API_BASE="http://localhost:8000"
